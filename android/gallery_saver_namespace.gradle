@@ -1,0 +1,7 @@
+afterEvaluate {
+    if (project.name == "gallery_saver") {
+        android {
+            namespace = "com.example.gallery_saver"
+        }
+    }
+}
