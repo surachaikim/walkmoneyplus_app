@@ -118,6 +118,7 @@ class SerachnameScreenState extends State<SerachnameScreen> {
           ),
         ],
         backgroundColor: Colors.transparent,
+        automaticallyImplyLeading: true,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),

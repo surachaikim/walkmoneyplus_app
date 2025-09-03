@@ -2,21 +2,17 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:form_field_validator/form_field_validator.dart';
 import 'package:intl/intl.dart';
-import 'package:walkmoney/model/deposit.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:http/http.dart' as http;
-import 'package:enhanced_drop_down/enhanced_drop_down.dart';
 
 import 'package:walkmoney/service/config.dart';
-import 'package:walkmoney/screen/menu.dart';
 import 'package:walkmoney/screen/receipt.dart';
-
-import '../service/loading3.dart';
+import 'package:walkmoney/palette.dart';
 
 class AddloanScreen extends StatefulWidget {
   AddloanScreen({Key? key, required this.accountno, required this.balance})
-      : super(key: key);
+    : super(key: key);
   final String accountno;
   final String balance;
 
@@ -25,7 +21,7 @@ class AddloanScreen extends StatefulWidget {
 }
 
 class _AddloanScreenState extends State<AddloanScreen> {
-  final TextEditingController textAmount = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
   List infoLoan = [];
   String docId = "";
   String time = "";
@@ -33,133 +29,258 @@ class _AddloanScreenState extends State<AddloanScreen> {
   bool isLoading = false;
   final f = NumberFormat('#,###', 'th_TH');
   final f1 = NumberFormat('###', 'th_TH');
+  int? selectedChipValue;
+
+  final List<int> chipValues = [500, 1000, 2000, 5000];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeLocale();
+    });
+  }
+
+  Future<void> _initializeLocale() async {
+    await initializeDateFormatting('th');
     loadData(widget.accountno);
   }
 
   @override
   void dispose() {
-    textAmount.dispose();
+    _amountController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text('ชำระเงินกู้'),
-        shadowColor: Color.fromARGB(255, 8, 64, 129),
+        title: const Text(
+          'ชำระเงินกู้',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      backgroundColor: Colors.white,
       body: Container(
-        padding: const EdgeInsets.fromLTRB(10, 20, 10, 10),
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Palette.kToDark.shade100, Palette.kToDark.shade900],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildAccountCard(),
+                const SizedBox(height: 30),
+                _buildAmountSection(),
+                const SizedBox(height: 10),
+                _buildChoiceChips(),
+                const SizedBox(height: 40),
+                _buildSubmitButton(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAccountCard() {
+    return Card(
+      elevation: 8.0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+      color: Colors.white.withOpacity(0.9),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 5,
-              child: Column(
-                children: [
-                  ListTile(
-                    title: Text(
-                      'เลขที่สัญญา : ${widget.accountno}',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Text(" " + typeAcc),
-                    tileColor: Colors.grey[100],
-                  ),
-                  SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(30, 5, 10, 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          "ยอดหนี้คงเหลือ",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.grey[400],
-                          ),
-                        ),
-                        Text(
-                          '${widget.balance} ฿',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+            Text(
+              'เลขที่สัญญา',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            Container(
-              child: Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(10, 20, 10, 10),
-                    child: Row(
-                      children: [
-                        Text(
-                          'จำนวนเงินค่างวด',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w400,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(25, 10, 25, 10),
-                    child: TextField(
-                      controller: textAmount,
-                      decoration: InputDecoration(
-                        border: UnderlineInputBorder(),
-                        hintText: 'ระบุจำนวนเงิน',
-                      ),
-                      textAlign: TextAlign.right,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.orange[700],
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 8),
+            Text(
+              widget.accountno,
+              style: TextStyle(
+                color: Palette.kToDark.shade400,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 10),
-            isLoading
-                ? Loading3()
-                : Expanded(
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(40), // NEW
-                        ),
-                        onPressed: _submitPayment,
-                        child: Text('ชำระ'),
-                      ),
-                    ),
+            const SizedBox(height: 4),
+            Text(
+              typeAcc,
+              style: TextStyle(
+                color: Colors.grey[700],
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const Divider(height: 30, thickness: 1),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "ยอดหนี้คงเหลือ",
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
                   ),
+                ),
+                Text(
+                  '${widget.balance} ฿',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
+  Widget _buildAmountSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'จำนวนเงินที่ต้องการชำระ',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _amountController,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 36,
+            fontWeight: FontWeight.bold,
+            color: Colors.orangeAccent[100],
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.black.withOpacity(0.2),
+            hintText: '0.00',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+            prefixText: '฿ ',
+            prefixStyle: TextStyle(
+              fontSize: 36,
+              fontWeight: FontWeight.bold,
+              color: Colors.orangeAccent[100],
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChoiceChips() {
+    return Center(
+      child: Wrap(
+        spacing: 10.0,
+        runSpacing: 8.0,
+        alignment: WrapAlignment.center,
+        children:
+            chipValues.map((value) {
+              final isSelected = selectedChipValue == value;
+              return ChoiceChip(
+                label: Text(
+                  NumberFormat('#,###').format(value),
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                selected: isSelected,
+                onSelected: (bool selected) {
+                  setState(() {
+                    if (selected) {
+                      selectedChipValue = value;
+                      _amountController.text = value.toString();
+                    } else {
+                      selectedChipValue = null;
+                    }
+                  });
+                },
+                backgroundColor: Colors.white.withOpacity(0.7),
+                selectedColor: Colors.orange,
+                elevation: 4,
+                pressElevation: 8,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20.0),
+                  side: BorderSide(
+                    color: isSelected ? Colors.orange : Colors.transparent,
+                    width: 1.5,
+                  ),
+                ),
+              );
+            }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          backgroundColor: Colors.orange,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0),
+          ),
+          elevation: 5,
+        ),
+        onPressed: isLoading ? null : _submitPayment,
+        child:
+            isLoading
+                ? const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                )
+                : const Text(
+                  'ยืนยันการชำระเงินกู้',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+      ),
+    );
+  }
+
   Future<void> _submitPayment() async {
-    if (textAmount.text.isEmpty) {
+    if (_amountController.text.isEmpty) {
       _showErrorDialog('กรุณาระบุจำนวนเงิน !');
       return;
     }
@@ -167,65 +288,164 @@ class _AddloanScreenState extends State<AddloanScreen> {
     if (isLoading) return;
     setState(() => isLoading = true);
 
-    docId = "LO" +
-        generateRandomString(5) +
-        DateFormat.Hms('th')
-            .format(DateTime.now())
-            .toString()
-            .replaceAll('.', '')
-            .replaceAll(":", "");
-    time = DateFormat.Hms('th').format(DateTime.now().toLocal());
+    try {
+      docId =
+          "LO" +
+          generateRandomString(5) +
+          DateFormat.Hms('th')
+              .format(DateTime.now())
+              .toString()
+              .replaceAll('.', '')
+              .replaceAll(":", "");
+      time = DateFormat.Hms('th').format(DateTime.now().toLocal());
 
-    bool success = await addData(
-      infoLoan[0]["accountNo"].toString(),
-      infoLoan[0]["accountName"].toString(),
-      textAmount.text,
-      DateTime.now().toString(),
-      infoLoan[0]["personId"].toString(),
-      'LO',
-      docId,
-      time,
-    );
-
-    if (success) {
-      await updateBalance();
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ReceiptScreen(
-            title: "ชำระเงินกู้สำเร็จ",
-            name: infoLoan[0]["accountName"].toString(),
-            accountno: infoLoan[0]["accountNo"].toString(),
-            amount: double.parse(textAmount.text),
-            docId: docId,
-            time: time,
-            personId: infoLoan[0]["personId"].toString(),
-          ),
-        ),
+      bool success = await addData(
+        infoLoan[0]["accountNo"].toString(),
+        infoLoan[0]["accountName"].toString(),
+        _amountController.text,
+        DateTime.now().toString(),
+        infoLoan[0]["personId"].toString(),
+        'LO',
+        docId,
+        time,
       );
-    } else {
+
+      if (success) {
+        await updateBalance();
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => ReceiptScreen(
+                  title: "ชำระเงินกู้สำเร็จ",
+                  name: infoLoan[0]["accountName"].toString(),
+                  accountno: infoLoan[0]["accountNo"].toString(),
+                  amount: double.parse(_amountController.text),
+                  docId: docId,
+                  time: time,
+                  personId: infoLoan[0]["personId"].toString(),
+                ),
+          ),
+        );
+      } else {
+        setState(() => isLoading = false);
+        _showErrorDialog('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      }
+    } catch (e) {
       setState(() => isLoading = false);
-      _showErrorDialog('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+      _showErrorDialog('เกิดข้อผิดพลาด: $e');
     }
   }
 
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            message,
-            style: TextStyle(fontSize: 16),
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-          actions: <Widget>[
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text('ตกลง'),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
-          ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header Icon
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.error_outline_rounded,
+                    size: 40,
+                    color: Colors.red.shade400,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Title
+                Text(
+                  'เกิดข้อผิดพลาด',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Palette.kToDark.shade800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Message
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Palette.kToDark.shade600,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                // OK Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.red.shade400, Colors.red.shade600],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'ตกลง',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -246,7 +466,7 @@ class _AddloanScreenState extends State<AddloanScreen> {
         var json = jsonDecode(response.body);
         setState(() {
           infoLoan = json;
-          textAmount.text = f1.format(
+          _amountController.text = f1.format(
             double.parse(infoLoan[0]["minPayment"].toString()),
           );
           typeAcc = infoLoan[0]["typeLoanName"].toString();
@@ -263,7 +483,7 @@ class _AddloanScreenState extends State<AddloanScreen> {
     try {
       var totalAmount =
           double.parse(infoLoan[0]["totalAmount"].toString()) -
-              double.parse(textAmount.text);
+          double.parse(_amountController.text);
 
       var url = Uri.parse(
         '${Config.UrlApi}/api/UpdateLoanTotal?AccountNo=${infoLoan[0]["accountNo"]}&Balance=$totalAmount&Cusid=${Config.CusId}',

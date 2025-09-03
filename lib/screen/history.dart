@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:walkmoney/palette.dart';
-import 'package:walkmoney/service/loading3.dart';
+import 'package:walkmoney/widgets/beautiful_loading.dart';
 
 import '../service/config.dart';
 import 'package:http/http.dart' as http;
@@ -77,8 +77,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
     query = query.toLowerCase();
     List result = [];
     originalData.forEach((p) {
-      var name = p["accountName"].toString().toLowerCase();
-      var accountNo = p["accountNo"].toString();
+      var name = (p["accountName"] ?? '').toString().toLowerCase();
+      var accountNo = (p["accountNo"] ?? '').toString();
       if (name.contains(query) || accountNo.contains(query)) {
         result.add(p);
       }
@@ -101,6 +101,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        automaticallyImplyLeading: false, // ปิดปุ่มย้อนกลับ
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -117,7 +118,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Expanded(
                 child:
                     isShow
-                        ? const Center(child: Loading3())
+                        ? const BeautifulLoading(
+                          message: 'กำลังโหลดประวัติธุรกรรม...',
+                        )
                         : data.isEmpty
                         ? _buildEmptyState()
                         : _buildListView(data),
@@ -134,84 +137,120 @@ class _HistoryScreenState extends State<HistoryScreen> {
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
+          // Date Filter Card
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  "ข้อมูลย้อนหลัง",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Palette.kToDark.shade100.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.calendar_month,
+                    color: Palette.kToDark.shade800,
+                    size: 20,
                   ),
                 ),
-                const SizedBox(width: 20),
-                DropdownButton<String>(
-                  value: dropdownValue,
-                  dropdownColor: Palette.kToDark.shade400,
-                  elevation: 16,
-                  style: const TextStyle(color: Colors.white, fontSize: 16),
-                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                  underline: Container(),
-                  onChanged: (String? value) {
-                    setState(() {
-                      dropdownValue = value!;
-                      _fetchData();
-                    });
-                  },
-                  items:
-                      list
-                          .map<DropdownMenuItem<String>>(
-                            (String value) => DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            ),
-                          )
-                          .toList(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    "ข้อมูลย้อนหลัง",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Palette.kToDark.shade800,
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 20),
-                const Text(
-                  "วัน",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Palette.kToDark.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Palette.kToDark.shade200),
+                  ),
+                  child: DropdownButton<String>(
+                    value: dropdownValue,
+                    style: TextStyle(
+                      color: Palette.kToDark.shade800,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    icon: Icon(
+                      Icons.arrow_drop_down,
+                      color: Palette.kToDark.shade600,
+                    ),
+                    underline: Container(),
+                    onChanged: (String? value) {
+                      setState(() {
+                        dropdownValue = value!;
+                        _fetchData();
+                      });
+                    },
+                    items:
+                        list
+                            .map<DropdownMenuItem<String>>(
+                              (String value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text('$value วัน'),
+                              ),
+                            )
+                            .toList(),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: txtQuery,
-            onChanged: _search,
-            style: const TextStyle(color: Colors.black),
-            decoration: InputDecoration(
-              hintText: "ค้นหาชื่อ หรือ เลขบัญชี...",
-              hintStyle: TextStyle(color: Colors.grey[500]),
-              filled: true,
-              fillColor: Colors.white,
-              prefixIcon: Icon(Icons.search, color: Palette.kToDark.shade200),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12.0),
-                borderSide: BorderSide.none,
+          // Search Card
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: txtQuery,
+              onChanged: _search,
+              style: TextStyle(color: Palette.kToDark.shade800),
+              decoration: InputDecoration(
+                hintText: 'ค้นหาชื่อหรือเลขบัญชี...',
+                hintStyle: TextStyle(color: Palette.kToDark.shade400),
+                prefixIcon: Icon(Icons.search, color: Palette.kToDark.shade600),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
               ),
-              suffixIcon:
-                  txtQuery.text.isNotEmpty
-                      ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          txtQuery.clear();
-                          _search('');
-                        },
-                      )
-                      : null,
             ),
           ),
         ],
@@ -221,86 +260,308 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.history_toggle_off, size: 80, color: Colors.white54),
-          const SizedBox(height: 16),
-          const Text(
-            "ไม่พบข้อมูลธุรกรรม",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+      child: Container(
+        margin: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "ลองเปลี่ยนจำนวนวันที่หรือรีเฟรช",
-            style: TextStyle(fontSize: 14, color: Colors.white70),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _fetchData,
-          ),
-        ],
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Palette.kToDark.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.history_toggle_off,
+                size: 48,
+                color: Palette.kToDark.shade400,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              "ไม่พบข้อมูลธุรกรรม",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Palette.kToDark.shade800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "ลองเปลี่ยนจำนวนวันที่หรือรีเฟรช",
+              style: TextStyle(fontSize: 14, color: Palette.kToDark.shade600),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _fetchData,
+              icon: const Icon(Icons.refresh),
+              label: const Text('รีเฟรช'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Palette.kToDark.shade700,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildListView(List data) {
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: data.length,
-      itemBuilder: (context, index) {
-        var d = data[index];
-        Color amountColor;
-        String typeText;
-
-        switch (d["type"].toString()) {
-          case "DP":
-            amountColor = Colors.greenAccent;
-            typeText = "ฝาก";
-            break;
-          case "WD":
-            amountColor = Colors.redAccent;
-            typeText = "ถอน";
-            break;
-          default:
-            amountColor = Colors.orangeAccent;
-            typeText = "ชำระกู้";
+    // จัดกลุ่มข้อมูลตามวันที่
+    Map<String, List> groupedData = {};
+    for (var item in data) {
+      String dateKey = '';
+      if (item["movementDate"] != null) {
+        try {
+          DateTime date = DateTime.parse(item["movementDate"]);
+          dateKey = DateFormat('dd MMMM yyyy', 'th_TH').format(date);
+        } catch (e) {
+          dateKey = 'ไม่ระบุวันที่';
         }
+      } else {
+        dateKey = 'ไม่ระบุวันที่';
+      }
 
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(vertical: 8),
-          title: Text(
-            "${d["accountName"]} : ${d["accountNo"]}",
-            style: const TextStyle(
-              fontSize: 15,
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
+      if (!groupedData.containsKey(dateKey)) {
+        groupedData[dateKey] = [];
+      }
+      groupedData[dateKey]!.add(item);
+    }
+
+    // เรียงลำดับวันที่
+    List<String> sortedDates = groupedData.keys.toList();
+    sortedDates.sort((a, b) {
+      if (a == 'ไม่ระบุวันที่') return 1;
+      if (b == 'ไม่ระบุวันที่') return -1;
+      try {
+        DateTime dateA = DateFormat('dd MMMM yyyy', 'th_TH').parse(a);
+        DateTime dateB = DateFormat('dd MMMM yyyy', 'th_TH').parse(b);
+        return dateB.compareTo(dateA); // เรียงจากใหม่ไปเก่า
+      } catch (e) {
+        return 0;
+      }
+    });
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+      itemCount: sortedDates.length,
+      itemBuilder: (context, index) {
+        String dateKey = sortedDates[index];
+        List dayTransactions = groupedData[dateKey]!;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header วันที่
+            Container(
+              margin: const EdgeInsets.only(top: 16, bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today,
+                    size: 16,
+                    color: Palette.kToDark.shade600,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    dateKey,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Palette.kToDark.shade800,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Palette.kToDark.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${dayTransactions.length} รายการ',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Palette.kToDark.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          subtitle: Text(
-            "${formats.format(DateTime.parse(d["movementDate"]))} ${d["time"]}",
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.white.withOpacity(0.7),
-              fontWeight: FontWeight.w600,
+            // รายการธุรกรรมในวันนั้น
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children:
+                    dayTransactions.asMap().entries.map((entry) {
+                      int idx = entry.key;
+                      var d = entry.value;
+
+                      Color amountColor;
+                      String typeText;
+                      IconData typeIcon;
+
+                      switch (d["type"]?.toString() ?? '') {
+                        case "DP":
+                          amountColor = Colors.green;
+                          typeText = "ฝากเงิน";
+                          typeIcon = Icons.savings;
+                          break;
+                        case "WD":
+                          amountColor = Colors.red;
+                          typeText = "ถอนเงิน";
+                          typeIcon = Icons.money_off;
+                          break;
+                        default:
+                          amountColor = Colors.orange;
+                          typeText = "ชำระสินเชื่อ";
+                          typeIcon = Icons.credit_card;
+                      }
+
+                      return Column(
+                        children: [
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: amountColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                typeIcon,
+                                color: amountColor,
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(
+                              "${d["accountName"] ?? 'ไม่ระบุชื่อ'}",
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Palette.kToDark.shade800,
+                              ),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "บัญชีเลขที่: ${d["accountNo"] ?? 'ไม่ระบุ'}",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Palette.kToDark.shade600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: amountColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    typeText,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: amountColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            trailing: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  d["amount"] != null
+                                      ? "${NumberFormat('#,###', 'th_TH').format(double.tryParse(d["amount"].toString()) ?? 0)}"
+                                      : "0",
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: amountColor,
+                                  ),
+                                ),
+                                Text(
+                                  "บาท",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Palette.kToDark.shade600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (idx < dayTransactions.length - 1)
+                            Divider(
+                              height: 1,
+                              indent: 60,
+                              endIndent: 16,
+                              color: Colors.grey.shade200,
+                            ),
+                        ],
+                      );
+                    }).toList(),
+              ),
             ),
-          ),
-          trailing: Text(
-            "$typeText ${d["amount"]}",
-            style: TextStyle(
-              color: amountColor,
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          ],
         );
-      },
-      separatorBuilder: (context, index) {
-        return Divider(color: Colors.white.withOpacity(0.2));
       },
     );
   }

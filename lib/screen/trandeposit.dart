@@ -1,10 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:walkmoney/screen/menu.dart';
-import 'package:walkmoney/service/config.dart';
-import 'package:http/http.dart' as http;
+import 'package:walkmoney/service/transaction_service.dart';
+import 'package:walkmoney/palette.dart';
+import 'package:walkmoney/widgets/beautiful_loading.dart';
+import 'package:walkmoney/utils/locale_utils.dart';
 
 class Trandeposit extends StatefulWidget {
   Trandeposit({Key? key, required this.blance}) : super(key: key);
@@ -17,399 +17,460 @@ class Trandeposit extends StatefulWidget {
 class _TrandepositState extends State<Trandeposit> {
   List item = [];
   List infoDeposit = [];
-  var formats = DateFormat.yMd('th');
+  late DateFormat formats;
 
   String balshow = "";
   double bal = 0;
 
-  var f = NumberFormat('#,###', 'th_TH');
+  late NumberFormat f;
   bool buttonenabled = false;
+  bool loading = true;
+
   @override
   void initState() {
     super.initState();
+    _initializeData();
+  }
 
-    getData();
+  Future<void> _initializeData() async {
+    // Initialize formatters using utility class
+    formats = LocaleUtils.getDateFormatter();
+    f = LocaleUtils.getNumberFormatter();
+
     balshow = widget.blance;
-    bal = double.parse(widget.blance.replaceAll(',', ''));
+    // Safe parsing of balance with validation
+    String cleanBalance = widget.blance.replaceAll(',', '').replaceAll(' ', '');
+    bal = double.tryParse(cleanBalance) ?? 0.0;
+    await _loadTransactionData();
   }
 
-  void getData() async {
-    var url = Uri.parse(
-      Config.UrlApi +
-          "/api/GetTransactionTypebyuser?Cusid=" +
-          Config.CusId +
-          "&Type=DP" +
-          "&User=" +
-          Config.UserId,
-    );
-
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
-    var response = await http.get(url, headers: headers);
-    var json = jsonDecode(response.body);
-
-    setState(() {
-      item = json;
-    });
+  /// Helper method to safely parse numeric strings
+  double _safeParseDouble(String? value, {double defaultValue = 0.0}) {
+    if (value == null || value.isEmpty) return defaultValue;
+    String cleanValue = value.replaceAll(',', '').replaceAll(' ', '');
+    return double.tryParse(cleanValue) ?? defaultValue;
   }
 
-  void CancelSt(docId) async {
-    var url = Uri.parse(
-      Config.UrlApi +
-          "/api/CanceldTransaction?DocId=" +
-          docId +
-          "&St=1" +
-          "&CusId=" +
-          Config.CusId,
-    );
-
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
-    await http.post(url, headers: headers);
-    // Balance updated
+  Future<void> _loadTransactionData() async {
+    try {
+      final transactions = await TransactionService.getTransactionTypeByUser(
+        'DP',
+      );
+      if (mounted) {
+        setState(() {
+          item = transactions;
+          loading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading transaction data: $e');
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
+    }
   }
 
-  void loadAccountNo(AccountNo, amount) async {
-    var url = Uri.parse(
-      Config.UrlApi +
-          '/api/GetDepositByAccountNo?AccountNo=' +
-          AccountNo +
-          '&Cusid=' +
-          Config.CusId,
-    );
+  Future<void> _cancelTransaction(
+    String docId,
+    String accountNo,
+    String amount,
+  ) async {
+    try {
+      await TransactionService.cancelTransaction(docId);
 
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
-    var response = await http.get(url, headers: headers);
-    var json = jsonDecode(response.body);
-    infoDeposit = json;
+      final accountDetails = await TransactionService.getDepositByAccountNo(
+        accountNo,
+      );
+      if (accountDetails.isNotEmpty) {
+        // Use helper method to safely parse values
+        final currentBalance = _safeParseDouble(
+          accountDetails[0]["balance"]?.toString(),
+        );
+        final amountToDeduct = _safeParseDouble(amount);
 
-    updateBalance(amount);
+        if (amountToDeduct <= 0) {
+          throw Exception('Invalid amount value: $amount');
+        }
 
-    setState(() {
-      infoDeposit = json;
-    });
-  }
+        final newBalance = currentBalance - amountToDeduct;
 
-  void updateBalance(amount) async {
-    var Balance = 0.00;
+        await TransactionService.updateBalance(accountNo, newBalance);
 
-    Balance = double.parse(infoDeposit[0]["balance"]) - double.parse(amount);
+        // Update local balance
+        bal = bal - amountToDeduct;
 
-    var url = Uri.parse(
-      Config.UrlApi +
-          '/api/UpdateBalance?AccountNo=' +
-          infoDeposit[0]["accountNo"].toString() +
-          '&Balance=' +
-          Balance.toString() +
-          '&Cusid=' +
-          Config.CusId,
-    );
+        // Reload transaction data
+        await _loadTransactionData();
 
-    var headers = {'Verify_identity': Config.Verify_identity};
-    await http.post(url, headers: headers);
-    // Balance update request sent
-  }
-
-  Widget build(BuildContext context) {
-    return Container(
-      child: SafeArea(
-        child: Scaffold(
-          appBar: AppBar(
-            centerTitle: true,
-            title: Text("รายการฝากเงิน"),
-            leading: IconButton(
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => Menuscreen(tab: '1')),
-                );
-              },
-              icon: Icon(Icons.arrow_back),
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('ยกเลิกรายการเรียบร้อยแล้ว'),
+              backgroundColor: Colors.green,
             ),
-            shadowColor: Color.fromARGB(255, 8, 64, 129),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error canceling transaction: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('เกิดข้อผิดพลาดในการยกเลิกรายการ: ${e.toString()}'),
+            backgroundColor: Colors.red,
           ),
-          backgroundColor: Colors.white,
-          body: Container(
+        );
+      }
+    }
+  }
+
+  Widget _buildTransactionTile(Map transaction, int index, bool isActive) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        children: [
+          // Transaction Info
+          Expanded(
             child: Column(
-              children: <Widget>[
-                SizedBox(height: 10),
-                Card(
-                  color: Color(0xFF1976D2),
-                  elevation: 4,
-                  shadowColor: Color(0xFF1976D2).withOpacity(0.3),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "${transaction["accountNo"]}:${transaction["accountName"]}",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isActive ? Colors.black87 : Colors.grey.shade600,
+                    fontWeight: FontWeight.w600,
                   ),
-                  child: Container(
-                    width: MediaQuery.of(context).size.width * 0.9,
-                    height: 80,
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "ยอดเงินคงเหลือ",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white.withOpacity(0.8),
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                            SizedBox(height: 5),
-                            Text(
-                              f.format(double.parse('${bal}')) + " บาท",
-                              style: TextStyle(
-                                fontSize: 20,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "${formats.format(DateTime.parse(transaction["movementDate"].toString()))} ${transaction["time"]}",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color:
+                        isActive ? Colors.grey.shade600 : Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Amount and Cancel Button Row
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Amount Display
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      isActive
+                          ? Colors.green.withOpacity(0.1)
+                          : transaction["stsync"].toString() == "3"
+                          ? Colors.grey.withOpacity(0.1)
+                          : Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  "+${f.format(_safeParseDouble(transaction["amount"]?.toString()))}",
+                  style: TextStyle(
+                    color:
+                        isActive
+                            ? Colors.green.shade700
+                            : transaction["stsync"].toString() == "3"
+                            ? Colors.grey.shade600
+                            : Colors.red.shade600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              // Cancel Button (only for active transactions)
+              if (isActive) ...[
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.red.shade400, Colors.red.shade600],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => _showCancelDialog(transaction, index),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          Icons.close_rounded,
+                          color: Colors.white,
+                          size: 18,
                         ),
-                        Container(
-                          padding: EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.account_balance_wallet,
-                            color: Colors.white,
-                            size: 24,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCancelDialog(Map transaction, int index) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          elevation: 10,
+          backgroundColor: Colors.white,
+          title: Container(
+            padding: const EdgeInsets.only(top: 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.orange.shade600,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Text(
+                    'ยืนยันการยกเลิก',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'คุณต้องการยกเลิกรายการฝากเงินนี้หรือไม่?',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey.shade700,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.blue.shade50, Colors.blue.shade100],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.account_balance,
+                          color: Colors.blue.shade600,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'รายละเอียดธุรกรรม',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue.shade700,
                           ),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'บัญชี:',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        Text(
+                          transaction["accountNo"].toString(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'จำนวนเงิน:',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '+${f.format(_safeParseDouble(transaction["amount"]?.toString()))} บาท',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.green.shade700,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                SizedBox(height: 10),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.red.shade600,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'การยกเลิกไม่สามารถกู้คืนได้',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.red.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          actions: [
+            Row(
+              children: [
                 Expanded(
-                  child: Container(
-                    margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    child: Card(
-                      elevation: 1,
-                      shadowColor: Colors.grey.withOpacity(0.1),
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.grey.shade400, width: 1.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          height: MediaQuery.of(context).size.height * 0.5,
-                          child: ListView.separated(
-                            physics: BouncingScrollPhysics(
-                              parent: AlwaysScrollableScrollPhysics(),
-                            ),
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            itemCount: item.length,
-                            itemBuilder: (BuildContext context, int index) {
-                              return item[index]["stcancel"].toString() !=
-                                          "1" &&
-                                      item[index]["stsync"].toString() != "3"
-                                  ? ListTile(
-                                    dense: true,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
-                                    ),
-                                    onTap: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            title: Text('ต้องการยกเลิกรายการ?'),
-                                            actions: <Widget>[
-                                              OutlinedButton(
-                                                onPressed: () async {
-                                                  bal =
-                                                      double.parse('${bal}') -
-                                                      double.parse(
-                                                        item[index]["amount"]
-                                                            .toString(),
-                                                      );
-                                                  CancelSt(
-                                                    item[index]["docId"]
-                                                        .toString(),
-                                                  );
-                                                  loadAccountNo(
-                                                    item[index]["accountNo"]
-                                                        .toString(),
-                                                    item[index]["amount"]
-                                                        .toString(),
-                                                  );
-
-                                                  Navigator.pushAndRemoveUntil(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder:
-                                                          (context) =>
-                                                              Trandeposit(
-                                                                blance:
-                                                                    '${bal}',
-                                                              ),
-                                                    ),
-                                                    (Route<dynamic> route) =>
-                                                        false,
-                                                  );
-                                                },
-                                                child: Text('ตกลง'),
-                                              ),
-                                              OutlinedButton(
-                                                onPressed: () {
-                                                  Navigator.pop(context);
-                                                },
-                                                child: Text('ยกเลิก'),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                    },
-                                    leading: Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.withOpacity(0.1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.arrow_upward,
-                                        color: Colors.green,
-                                        size: 14,
-                                      ),
-                                    ),
-                                    trailing: Text(
-                                      "+" + item[index]["amount"].toString(),
-                                      style: TextStyle(
-                                        color: Colors.green,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    title: Text(
-                                      item[index]["accountNo"] +
-                                          ":" +
-                                          item[index]["accountName"].toString(),
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.black87,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      formats.format(
-                                            DateTime.parse(
-                                              item[index]["movementDate"]
-                                                  .toString(),
-                                            ),
-                                          ) +
-                                          " " +
-                                          item[index]["time"].toString(),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  )
-                                  : ListTile(
-                                    dense: true,
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
-                                    ),
-                                    leading: Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: BoxDecoration(
-                                        color:
-                                            item[index]["stsync"].toString() ==
-                                                    "3"
-                                                ? Colors.grey.withOpacity(0.1)
-                                                : Colors.red.withOpacity(0.1),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        item[index]["stsync"].toString() == "3"
-                                            ? Icons.sync
-                                            : Icons.cancel,
-                                        color:
-                                            item[index]["stsync"].toString() ==
-                                                    "3"
-                                                ? Colors.grey
-                                                : Colors.red,
-                                        size: 14,
-                                      ),
-                                    ),
-                                    trailing: Text(
-                                      "+" + item[index]["amount"].toString(),
-                                      style: TextStyle(
-                                        color:
-                                            item[index]["stsync"].toString() ==
-                                                    "3"
-                                                ? Colors.grey
-                                                : Colors.red,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    title: Text(
-                                      item[index]["accountNo"] +
-                                          ":" +
-                                          item[index]["accountName"].toString(),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color:
-                                            item[index]["stsync"].toString() ==
-                                                    "3"
-                                                ? Colors.grey
-                                                : Colors.red,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      formats.format(
-                                            DateTime.parse(
-                                              item[index]["movementDate"]
-                                                  .toString(),
-                                            ),
-                                          ) +
-                                          " " +
-                                          item[index]["time"].toString(),
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color:
-                                            item[index]["stsync"].toString() ==
-                                                    "3"
-                                                ? Colors.grey.shade500
-                                                : Colors.red.shade300,
-                                      ),
-                                    ),
-                                  );
-                            },
-                            separatorBuilder: (context, index) {
-                              return Divider(
-                                height: 1,
-                                indent: 16,
-                                endIndent: 16,
-                                color: Colors.grey.shade100,
-                              );
-                            },
-                          ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      'ปิด',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.red.shade500, Colors.red.shade700],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.red.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        await _cancelTransaction(
+                          transaction["docId"].toString(),
+                          transaction["accountNo"].toString(),
+                          transaction["amount"].toString(),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'ยืนยันยกเลิก',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -417,6 +478,224 @@ class _TrandepositState extends State<Trandeposit> {
                 ),
               ],
             ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const BeautifulLoading(message: 'กำลังโหลดรายการฝากเงิน');
+    }
+
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text(
+          "รายการฝากเงิน",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => Menuscreen(tab: '1')),
+            );
+          },
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+        ),
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Palette.kToDark.shade100, Palette.kToDark.shade900],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: <Widget>[
+              const SizedBox(height: 20),
+              // Balance Card
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 5),
+                child: Card(
+                  elevation: 8,
+                  shadowColor: Colors.black.withOpacity(0.3),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      gradient: LinearGradient(
+                        colors: [Colors.blue.shade600, Colors.blue.shade800],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "ยอดเงินคงเหลือ",
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white.withOpacity(0.9),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              "${f.format(bal)} บาท",
+                              style: const TextStyle(
+                                fontSize: 24,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.account_balance_wallet,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Transactions List
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 5),
+                  child: Card(
+                    elevation: 4,
+                    shadowColor: Colors.black.withOpacity(0.1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(15),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(20),
+                                topRight: Radius.circular(20),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.list_alt,
+                                  color: Colors.grey.shade600,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "รายการธุรกรรม",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child:
+                                item.isEmpty
+                                    ? Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.inbox_outlined,
+                                            size: 64,
+                                            color: Colors.grey.shade400,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            "ไม่มีรายการธุรกรรม",
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: Colors.grey.shade600,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                    : ListView.separated(
+                                      physics: const BouncingScrollPhysics(),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 12,
+                                      ),
+                                      itemCount: item.length,
+                                      itemBuilder: (
+                                        BuildContext context,
+                                        int index,
+                                      ) {
+                                        final transaction = item[index];
+                                        final isActive =
+                                            transaction["stcancel"]
+                                                    .toString() !=
+                                                "1" &&
+                                            transaction["stsync"].toString() !=
+                                                "3";
+
+                                        return _buildTransactionTile(
+                                          transaction,
+                                          index,
+                                          isActive,
+                                        );
+                                      },
+                                      separatorBuilder: (context, index) {
+                                        return Divider(
+                                          height: 1,
+                                          indent: 20,
+                                          endIndent: 20,
+                                          color: Colors.grey.shade200,
+                                        );
+                                      },
+                                    ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
           ),
         ),
       ),

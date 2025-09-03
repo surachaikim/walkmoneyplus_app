@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:walkmoney/screen/receipt.dart';
-import 'package:walkmoney/service/config.dart';
-import 'package:walkmoney/service/loading3.dart';
+import 'package:walkmoney/service/deposit_service.dart';
 import 'package:walkmoney/palette.dart'; // Assuming you have a palette.dart file for colors
 
 class AdddepositScreen extends StatefulWidget {
@@ -36,7 +34,43 @@ class _AdddepositScreenState extends State<AdddepositScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAccountInfo(widget.accountno);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeLocale();
+    });
+  }
+
+  Future<void> _initializeLocale() async {
+    await initializeDateFormatting('th');
+    _loadAccountInfo();
+  }
+
+  Future<void> _loadAccountInfo() async {
+    try {
+      var data = await DepositService.loadAccountInfo(widget.accountno);
+      if (mounted) {
+        if (data.isEmpty) {
+          _showErrorDialog('ไม่พบข้อมูลบัญชี');
+          setState(() {
+            infoDeposit = [];
+            typeAcc = "";
+          });
+        } else {
+          setState(() {
+            infoDeposit = data;
+            typeAcc = data[0]["typeAccName"].toString();
+          });
+        }
+      }
+    } catch (e) {
+      // Handle error, maybe show dialog
+      _showErrorDialog('Failed to load account info: $e');
+      if (mounted) {
+        setState(() {
+          infoDeposit = [];
+          typeAcc = "";
+        });
+      }
+    }
   }
 
   @override
@@ -272,6 +306,11 @@ class _AdddepositScreenState extends State<AdddepositScreen> {
       return;
     }
 
+    if (infoDeposit.isEmpty) {
+      _showErrorDialog('ข้อมูลบัญชีไม่พร้อมใช้งาน');
+      return;
+    }
+
     setState(() => isLoading = true);
 
     try {
@@ -307,6 +346,7 @@ class _AdddepositScreenState extends State<AdddepositScreen> {
       }
     } catch (e) {
       _showErrorDialog('เกิดข้อผิดพลาด: $e');
+      print(e);
     } finally {
       if (mounted) {
         setState(() => isLoading = false);
@@ -340,54 +380,19 @@ class _AdddepositScreenState extends State<AdddepositScreen> {
     double depositAmount = double.parse(_amountController.text);
     double newBalance = currentBalance + depositAmount;
 
-    var url = Uri.parse(
-      '${Config.UrlApi}/api/UpdateBalance?AccountNo=${infoDeposit[0]["accountNo"]}&Balance=$newBalance&Cusid=${Config.CusId}',
-    );
-    var headers = {'Verify_identity': Config.Verify_identity};
-    await http.post(url, headers: headers);
-  }
-
-  Future<void> _loadAccountInfo(String accountNo) async {
-    var url = Uri.parse(
-      '${Config.UrlApi}/api/GetDepositByAccountNo?Sys=2&AccountNo=$accountNo&Cusid=${Config.CusId}',
-    );
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
-    var response = await http.get(url, headers: headers);
-    if (response.statusCode == 200) {
-      var json = jsonDecode(response.body);
-      setState(() {
-        infoDeposit = json;
-        typeAcc =
-            infoDeposit.isNotEmpty
-                ? infoDeposit[0]["typeAccName"].toString()
-                : "";
-      });
-    }
+    await DepositService.updateBalance(infoDeposit[0]["accountNo"], newBalance);
   }
 
   Future<bool> _addData() async {
-    var url = Uri.parse(
-      '${Config.UrlApi}/api/InsertDeposit?AccountNo=${infoDeposit[0]["accountNo"]}'
-      '&AccountName=${infoDeposit[0]["accountName"]}'
-      '&Amount=${_amountController.text}'
-      '&MovementDate=${DateTime.now()}'
-      '&PersonId=${infoDeposit[0]["personId"]}'
-      '&UserId=${Config.UserId}'
-      '&Type=DP'
-      '&Cusid=${Config.CusId}'
-      '&DocId=$docId'
-      '&Time=$time',
+    return await DepositService.addDepositData(
+      accountNo: infoDeposit[0]["accountNo"],
+      accountName: infoDeposit[0]["accountName"],
+      amount: _amountController.text,
+      movementDate: DateTime.now(),
+      personId: infoDeposit[0]["personId"],
+      docId: docId,
+      time: time,
     );
-
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
-    var response = await http.post(url, headers: headers);
-    return response.body == "true";
   }
 
   String _generateRandomString(int len) {

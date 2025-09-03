@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:ffi';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -7,13 +5,10 @@ import 'package:intl/intl.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:walkmoney/palette.dart';
 import 'package:walkmoney/screen/mycard_loan.dart';
-import 'package:walkmoney/service/loading.dart';
-import 'package:walkmoney/service/loading3.dart';
+import 'package:walkmoney/widgets/beautiful_loading.dart';
+import 'package:walkmoney/service/member_service.dart';
 
-import '../service/config.dart';
 import 'accountdeposit.dart';
-import 'mycard.dart';
-import 'package:http/http.dart' as http;
 
 class Memberinfo extends StatefulWidget {
   const Memberinfo({
@@ -74,9 +69,73 @@ class _MemberinfoState extends State<Memberinfo> {
   @override
   void initState() {
     super.initState();
+    _loadInitialData();
+  }
 
-    loaddatadeposit(widget.idcard);
-    loaddataloan(widget.idcard);
+  Future<void> _loadInitialData() async {
+    try {
+      await Future.wait([_loadDepositData(), _loadLoanData()]);
+    } catch (e) {
+      print('Error loading initial data: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadDepositData() async {
+    try {
+      final deposits = await MemberService.getAccountDeposit(widget.idcard);
+      if (deposits.isNotEmpty) {
+        Accountinfo = deposits;
+        await _loadMovementData(deposits[0]["accountNo"]);
+      }
+    } catch (e) {
+      print('Error loading deposit data: $e');
+    }
+  }
+
+  Future<void> _loadLoanData() async {
+    try {
+      final loans = await MemberService.getAccountLoan(widget.idcard);
+      if (loans.isNotEmpty) {
+        loaninfo = loans;
+        await _loadLoanMovementData(loans[0]["accountNo"]);
+      }
+    } catch (e) {
+      print('Error loading loan data: $e');
+    }
+  }
+
+  Future<void> _loadMovementData(String accountNo) async {
+    try {
+      final movements = await MemberService.getMovement(accountNo);
+      movementinfo = movements;
+      if (mounted) {
+        setState(() {
+          loadinghistory = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading movement data: $e');
+    }
+  }
+
+  Future<void> _loadLoanMovementData(String accountNo) async {
+    try {
+      final movements = await MemberService.getMovementLoan(accountNo);
+      movementlaontinfo = movements;
+      if (mounted) {
+        setState(() {
+          loadinghistory = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading loan movement data: $e');
+    }
   }
 
   @override
@@ -95,8 +154,10 @@ class _MemberinfoState extends State<Memberinfo> {
           child: CustomScrollView(
             slivers: [
               SliverAppBar(
-                title:
-                    Text('ข้อมูลสมาชิก', style: TextStyle(color: Colors.white)),
+                title: Text(
+                  'ข้อมูลสมาชิก',
+                  style: TextStyle(color: Colors.white),
+                ),
                 centerTitle: true,
                 backgroundColor: Colors.transparent,
                 elevation: 0,
@@ -207,7 +268,10 @@ class _MemberinfoState extends State<Memberinfo> {
 
   Widget _buildAccountPages() {
     if (loading) {
-      return Center(child: Loading3());
+      return Container(
+        height: MediaQuery.of(context).size.height * 0.5,
+        child: const BeautifulLoading(message: 'กำลังโหลดข้อมูลสมาชิก'),
+      );
     }
 
     return DefaultTabController(
@@ -216,8 +280,18 @@ class _MemberinfoState extends State<Memberinfo> {
         children: [
           TabBar(
             tabs: [
-              Tab(child: Text('บัญชีเงินฝาก', style: TextStyle(color: Colors.white))),
-              Tab(child: Text('บัญชีเงินกู้', style: TextStyle(color: Colors.white)))
+              Tab(
+                child: Text(
+                  'บัญชีเงินฝาก',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+              Tab(
+                child: Text(
+                  'บัญชีเงินกู้',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
             ],
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
@@ -237,8 +311,11 @@ class _MemberinfoState extends State<Memberinfo> {
   Widget _buildDepositPage() {
     if (Accountinfo.isEmpty) {
       return Center(
-          child: Text("ไม่พบข้อมูลบัญชีเงินฝาก",
-              style: TextStyle(color: Colors.white)));
+        child: Text(
+          "ไม่พบข้อมูลบัญชีเงินฝาก",
+          style: TextStyle(color: Colors.white),
+        ),
+      );
     }
 
     return Column(
@@ -288,8 +365,11 @@ class _MemberinfoState extends State<Memberinfo> {
   Widget _buildLoanPage() {
     if (loaninfo.isEmpty) {
       return Center(
-          child:
-              Text("ไม่พบข้อมูลบัญชีเงินกู้", style: TextStyle(color: Colors.white)));
+        child: Text(
+          "ไม่พบข้อมูลบัญชีเงินกู้",
+          style: TextStyle(color: Colors.white),
+        ),
+      );
     }
 
     return Column(
@@ -345,157 +425,6 @@ class _MemberinfoState extends State<Memberinfo> {
           ),
       ],
     );
-  }
-
-  //ฟั่งชั่นใช้งาน
-
-  _onPageViewChangeDp(int page) {
-    print("Current Page: " + page.toString());
-    cardNum = page;
-    getmovement(Accountinfo[page]["accountNo"]);
-  }
-
-  _onPageViewChangeLo(int page) {
-    print("Current Page: " + page.toString());
-    cardNum = page;
-    getmovementloan(loaninfo[page]["accountNo"]);
-  }
-
-  Future<void> getmovement(AccountNo) async {
-    var url = Uri.parse(
-      Config.UrlApi +
-          '/api/GetMovement?Cusid=' +
-          Config.CusId +
-          '&AccountNo=' +
-          '$AccountNo',
-    );
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
-
-    var response = await http
-        .get(url, headers: headers)
-        .timeout(
-          const Duration(seconds: 300),
-          onTimeout: () {
-            return http.Response('Error', 408);
-          },
-        );
-    dynamic json = [];
-
-    if (response.statusCode == 200) {
-      json = jsonDecode(response.body);
-      movementinfo = json;
-    }
-    setState(() {
-      loadinghistory = false;
-    });
-  }
-
-  Future<void> getmovementloan(AccountNo) async {
-    var url = Uri.parse(
-      Config.UrlApi +
-          '/api/GetMovementLoan?Cusid=' +
-          Config.CusId +
-          '&AccountNo=' +
-          '$AccountNo',
-    );
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
-
-    var response = await http
-        .get(url, headers: headers)
-        .timeout(
-          const Duration(seconds: 300),
-          onTimeout: () {
-            return http.Response('Error', 408);
-          },
-        );
-    dynamic json = [];
-
-    if (response.statusCode == 200) {
-      json = jsonDecode(response.body);
-      movementlaontinfo = json;
-    }
-    setState(() {
-      loadinghistory = false;
-    });
-  }
-
-  Future<void> loaddatadeposit(idcard) async {
-    var url = Uri.parse(
-      Config.UrlApi +
-          '/api/GetAccountDeposit?Cusid=' +
-          Config.CusId +
-          '&Idcard=' +
-          '$idcard',
-    );
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
-
-    var response = await http
-        .get(url, headers: headers)
-        .timeout(
-          const Duration(seconds: 300),
-          onTimeout: () {
-            loading = false;
-            return http.Response('Error', 408);
-          },
-        );
-    dynamic json = [];
-
-    if (response.statusCode == 200) {
-      json = jsonDecode(response.body);
-      Accountinfo = json;
-
-      await getmovement(Accountinfo[0]["accountNo"]);
-    }
-  }
-
-  Future<void> loaddataloan(idcard) async {
-    var url = Uri.parse(
-      Config.UrlApi +
-          '/api/GetAccountLoan?Idcard=' +
-          idcard +
-          '&Cusid=' +
-          Config.CusId,
-    );
-
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
-    var response = await http
-        .get(url, headers: headers)
-        .timeout(
-          const Duration(seconds: 300),
-          onTimeout: () {
-            setState(() {
-              loading = false;
-            });
-
-            return http.Response('Error', 408);
-          },
-        );
-
-    if (response.statusCode == 400) {
-      setState(() {
-        loading = false;
-      });
-    } else if (response.statusCode == 200) {
-      var json = jsonDecode(response.body);
-      loaninfo = json;
-
-      await getmovementloan(loaninfo[0]["accountNo"]);
-    }
-    setState(() {
-      loading = false;
-    });
   }
 
   String generateRandomString(int len) {

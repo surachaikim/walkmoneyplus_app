@@ -1,20 +1,17 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:walkmoney/palette.dart';
 import 'package:walkmoney/screen/accountinfo.dart';
 import 'package:walkmoney/screen/serachname.dart';
-import 'package:walkmoney/screen/addMB.dart';
 import 'package:walkmoney/service/config.dart';
 import 'package:http/http.dart' as http;
 import 'package:walkmoney/screen/searchidcard.dart';
 import 'package:walkmoney/screen/serachpersonid.dart';
-import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 class SearchMainScreen extends StatefulWidget {
-  SearchMainScreen({Key? key}) : super(key: key);
+  const SearchMainScreen({super.key});
 
   @override
   State<SearchMainScreen> createState() => _SearchMainScreenState();
@@ -23,9 +20,6 @@ class SearchMainScreen extends StatefulWidget {
 class _SearchMainScreenState extends State<SearchMainScreen>
     with TickerProviderStateMixin {
   List persons = [];
-  List cusinfo = [];
-  String cpName = "";
-  String cpId = "";
   bool textScanning = false;
   String scannedText = "";
   XFile? imageFile;
@@ -39,8 +33,6 @@ class _SearchMainScreenState extends State<SearchMainScreen>
   @override
   void initState() {
     super.initState();
-    cpName = Config.CpName;
-    cpId = Config.CpId;
 
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 1200),
@@ -75,6 +67,8 @@ class _SearchMainScreenState extends State<SearchMainScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        toolbarHeight: 40, // shorter app bar
+        automaticallyImplyLeading: false, // ปิดปุ่มย้อนกลับ
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -110,83 +104,101 @@ class _SearchMainScreenState extends State<SearchMainScreen>
   }
 
   Widget _buildHeader() {
+    final double maxTextWidth =
+        MediaQuery.of(context).size.width -
+        64; // 16px padding left/right + breathing room
     return AnimatedBuilder(
       animation: _fadeAnimation,
       builder: (context, child) {
         return Opacity(
           opacity: _fadeAnimation.value,
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.25),
-                  Colors.white.withOpacity(0.15),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.4),
-                width: 1.5,
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.4),
-                        width: 1,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.22),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.45),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxTextWidth),
+                  child: Text(
+                    Config.Name,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      fontSize: 16,
+                      letterSpacing: 0.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.apartment_rounded,
+                      size: 16,
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                    const SizedBox(width: 6),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxTextWidth - 40),
+                      child: Text(
+                        Config.CpName,
+                        maxLines: 1,
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
                       ),
                     ),
-                    child: Icon(Icons.person, color: Colors.white, size: 28),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 3,
                   ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        Config.Name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          'ID: ${Config.UserId}',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                ],
-              ),
+                  child: Text(
+                    'ID: ${Config.UserId}',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
@@ -228,7 +240,7 @@ class _SearchMainScreenState extends State<SearchMainScreen>
       child: FadeTransition(
         opacity: _fadeAnimation,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Column(
             children: [
               Text(
@@ -239,20 +251,17 @@ class _SearchMainScreenState extends State<SearchMainScreen>
                   color: Palette.kToDark.shade400,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               Text(
                 'เลือกวิธีการค้นหาที่ต้องการ',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 2,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
                   childAspectRatio: 1.1,
                   children: [
                     _buildSearchCard(
@@ -261,7 +270,7 @@ class _SearchMainScreenState extends State<SearchMainScreen>
                       subtitle: 'ชื่อ-นามสกุล',
                       colors: [
                         Palette.kToDark.shade200,
-                        Palette.kToDark.shade400
+                        Palette.kToDark.shade400,
                       ],
                       onTap:
                           () => Navigator.push(
@@ -277,7 +286,7 @@ class _SearchMainScreenState extends State<SearchMainScreen>
                       subtitle: 'เลขบัตร 13 หลัก',
                       colors: [
                         Palette.kToDark.shade200,
-                        Palette.kToDark.shade400
+                        Palette.kToDark.shade400,
                       ],
                       onTap:
                           () => Navigator.push(
@@ -293,7 +302,7 @@ class _SearchMainScreenState extends State<SearchMainScreen>
                       subtitle: 'ถ่ายภาพบัตร',
                       colors: [
                         Palette.kToDark.shade300,
-                        Palette.kToDark.shade500
+                        Palette.kToDark.shade500,
                       ],
                       onTap: () => getImage(ImageSource.camera),
                     ),
@@ -303,7 +312,7 @@ class _SearchMainScreenState extends State<SearchMainScreen>
                       subtitle: 'รหัสสมาชิก',
                       colors: [
                         Palette.kToDark.shade300,
-                        Palette.kToDark.shade500
+                        Palette.kToDark.shade500,
                       ],
                       onTap:
                           () => Navigator.push(
@@ -330,65 +339,13 @@ class _SearchMainScreenState extends State<SearchMainScreen>
     required List<Color> colors,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    final Color accent = colors.isNotEmpty ? colors.last : Palette.kToDark;
+    return SearchActionCard(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      accent: accent,
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: colors,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: colors[0].withOpacity(0.4),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
-                  shape: BoxShape.circle,
-                ),
-                child: Image.asset(
-                  icon,
-                  width: 28,
-                  height: 28,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.white.withOpacity(0.9),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -472,6 +429,7 @@ class _SearchMainScreenState extends State<SearchMainScreen>
         persons = json;
 
         if (persons.isNotEmpty) {
+          if (!mounted) return;
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -538,6 +496,111 @@ class _SearchMainScreenState extends State<SearchMainScreen>
           ],
         );
       },
+    );
+  }
+}
+
+class SearchActionCard extends StatefulWidget {
+  final String icon;
+  final String title;
+  final String subtitle;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const SearchActionCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  State<SearchActionCard> createState() => _SearchActionCardState();
+}
+
+class _SearchActionCardState extends State<SearchActionCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderRadius = BorderRadius.circular(20);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.onTap,
+        onHighlightChanged: (v) => setState(() => _pressed = v),
+        borderRadius: borderRadius,
+        splashColor: widget.accent.withValues(alpha: 0.08),
+        highlightColor: widget.accent.withValues(alpha: 0.04),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          transform: Matrix4.identity()..scale(_pressed ? 0.98 : 1.0),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFFFFFFF), Color(0xFFF6FAFF)],
+            ),
+            borderRadius: borderRadius,
+            border: Border.all(color: const Color(0xFFE8F0FE), width: 1),
+            boxShadow: const [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 12,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: widget.accent.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: widget.accent.withValues(alpha: 0.15),
+                      width: 1,
+                    ),
+                  ),
+                  child: Image.asset(
+                    widget.icon,
+                    width: 28,
+                    height: 28,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  widget.title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Palette.kToDark.shade400,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.subtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

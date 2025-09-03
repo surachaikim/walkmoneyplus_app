@@ -1,29 +1,16 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:walkmoney/loading.dart';
+import 'package:walkmoney/widgets/beautiful_loading.dart';
+import 'package:walkmoney/service/account_service.dart';
 
-import 'package:walkmoney/service/config.dart';
-import 'package:http/http.dart' as http;
-
-import '../model/deposit.dart';
-import '../service/config.dart';
-
-import 'package:flutter/material.dart';
-
-import 'package:card_swiper/card_swiper.dart';
-import 'package:walkmoney/screen/receipt.dart';
 import 'package:walkmoney/screen/adddeposit.dart';
 import 'package:walkmoney/screen/addloan.dart';
 import 'package:walkmoney/screen/addwithdraw.dart';
-import 'package:walkmoney/model/loan.dart';
-// import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
 import 'package:walkmoney/screen/menu.dart';
 import 'package:card_loading/card_loading.dart';
 
@@ -81,17 +68,52 @@ class _AccountinfoScreenState extends State<AccountinfoScreen> {
   @override
   void initState() {
     super.initState();
-
-    loaddata(widget.idcard);
-    loadDataloan(widget.idcard);
-
+    _loadInitialData();
     _pageController = PageController(viewportFraction: 0.8, initialPage: 0);
+  }
+
+  Future<void> _loadInitialData() async {
+    try {
+      await Future.wait([_loadAccountData(), _loadLoanData()]);
+    } catch (e) {
+      print('Error loading initial data: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadAccountData() async {
+    try {
+      final accounts = await AccountService.getAccountDeposit(widget.idcard);
+      if (accounts.isNotEmpty) {
+        Accountinfo = accounts;
+        await _getAccountDetails(accounts[0]["accountNo"]);
+      }
+    } catch (e) {
+      print('Error loading account data: $e');
+    }
+  }
+
+  Future<void> _loadLoanData() async {
+    try {
+      final loans = await AccountService.getAccountLoan(widget.idcard);
+      if (loans.isNotEmpty) {
+        loaninfo = loans;
+        await _getLoanDetails(loans[0]["accountNo"]);
+      }
+    } catch (e) {
+      print('Error loading loan data: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return loading
-        ? Loading()
+        ? const BeautifulLoading(message: 'กำลังโหลดข้อมูลบัญชี')
         : DefaultTabController(
           length: 3, // length of tabs
           initialIndex: 0,
@@ -138,19 +160,26 @@ class _AccountinfoScreenState extends State<AccountinfoScreen> {
                               itemCount: Accountinfo.length,
                               pageSnapping: true,
                               controller: _pageController,
-                              onPageChanged: (page) {
+                              onPageChanged: (page) async {
                                 setState(() {
                                   loadingacc = true;
                                   currentIndex = page;
-                                  getAccountNo(
+                                });
+
+                                try {
+                                  await _getAccountDetails(
                                     '${Accountinfo[page]["accountNo"]}',
                                   );
+                                } catch (e) {
+                                  print('Error loading account details: $e');
+                                }
 
-                                  Timer(Duration(milliseconds: 500), () {
+                                Timer(const Duration(milliseconds: 500), () {
+                                  if (mounted) {
                                     setState(() {
                                       loadingacc = false;
                                     });
-                                  });
+                                  }
                                 });
                               },
                               itemBuilder: (context, index) {
@@ -464,19 +493,26 @@ class _AccountinfoScreenState extends State<AccountinfoScreen> {
                               itemCount: loaninfo.length,
                               pageSnapping: true,
                               controller: _pageController,
-                              onPageChanged: (page) {
+                              onPageChanged: (page) async {
                                 setState(() {
                                   loadingacc = true;
                                   currentIndex = page;
-                                  getloanAccountNo(
+                                });
+
+                                try {
+                                  await _getLoanDetails(
                                     '${loaninfo[page]["accountNo"]}',
                                   );
+                                } catch (e) {
+                                  print('Error loading loan details: $e');
+                                }
 
-                                  Timer(Duration(milliseconds: 500), () {
+                                Timer(const Duration(milliseconds: 500), () {
+                                  if (mounted) {
                                     setState(() {
                                       loadingacc = false;
                                     });
-                                  });
+                                  }
                                 });
                               },
                               itemBuilder: (context, index) {
@@ -825,90 +861,52 @@ class _AccountinfoScreenState extends State<AccountinfoScreen> {
     );
   }
 
-  void getAccountNo(AccountNo) async {
-    var url = Uri.parse(
-      Config.UrlApi +
-          '/api/GetDepositByAccountNo?AccountNo=' +
-          AccountNo +
-          '&Cusid=' +
-          Config.CusId,
-    );
+  Future<void> _getAccountDetails(String accountNo) async {
+    try {
+      final accountDetails = await AccountService.getDepositByAccountNo(
+        accountNo,
+      );
+      if (accountDetails.isNotEmpty) {
+        info = accountDetails;
+        accountName = '${info[0]["accountName"]}';
+        accountNo = '${info[0]["accountNo"]}';
+        typeAccName = '${info[0]["typeAccName"]}';
 
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
+        final status = '${info[0]["status"]}';
+        if (status == "1") {
+          statusAcc = 'เปิดบัญชี';
+        } else if (status == "2") {
+          statusAcc = 'ห้ามถอน';
+        } else if (status == "3") {
+          statusAcc = 'ปิดบัญชี';
+        }
 
-    var response = await http
-        .get(url, headers: headers)
-        .timeout(
-          const Duration(seconds: 90),
-          onTimeout: () {
-            setState(() {
-              loading = false;
-            });
-            return http.Response('Error', 408);
-          },
-        );
-
-    if (response.statusCode == 200) {
-      var json = jsonDecode(response.body);
-      info = json;
-
-      info = json;
-      accountName = '${info[0]["accountName"]}';
-      accountNo = '${info[0]["accountNo"]}';
-      typeAccName = '${info[0]["typeAccName"]}';
-
-      if ('${info[0]["status"]}' == "1") {
-        statusAcc = 'เปิดบัญชี';
-      } else if ('${info[0]["status"]}' == "2") {
-        statusAcc = 'ห้ามถอน';
-      } else if ('${info[0]["status"]}' == "3") {
-        statusAcc = 'ปิดบัญชี';
+        if (mounted) {
+          setState(() {});
+        }
       }
-      loading = false;
-      setState(() {});
+    } catch (e) {
+      print('Error getting account details: $e');
     }
   }
 
-  void getloanAccountNo(AccountNo) async {
-    var url = Uri.parse(
-      Config.UrlApi +
-          '/api/GetLoanByAccountNo?AccountNo=' +
-          AccountNo +
-          '&Cusid=' +
-          Config.CusId,
-    );
+  Future<void> _getLoanDetails(String accountNo) async {
+    try {
+      final loanDetails = await AccountService.getLoanByAccountNo(accountNo);
+      if (loanDetails.isNotEmpty) {
+        info2 = loanDetails;
+        accountLoanName = '${info2[0]["accountName"]}';
+        accountLoanNo = '${info2[0]["accountNo"]}';
+        typeLoanName = '${info2[0]["typeLoanName"]}';
+        loanBalance = '${info2[0]["loanBalance"]}';
+        minpayment = f.format(double.parse('${info2[0]["minPayment"]}'));
 
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
-
-    var response = await http
-        .get(url, headers: headers)
-        .timeout(
-          const Duration(seconds: 90),
-          onTimeout: () {
-            setState(() {
-              loading = false;
-            });
-            return http.Response('Error', 408);
-          },
-        );
-
-    if (response.statusCode == 200) {
-      var json = jsonDecode(response.body);
-      info2 = json;
-
-      accountLoanName = '${info2[0]["accountName"]}';
-      accountLoanNo = '${info2[0]["accountNo"]}';
-      typeLoanName = '${info2[0]["typeLoanName"]}';
-      loanBalance = '${info2[0]["loanBalance"]}';
-      minpayment = f.format(double.parse('${info2[0]["minPayment"]}'));
-      loading = false;
-      setState(() {});
+        if (mounted) {
+          setState(() {});
+        }
+      }
+    } catch (e) {
+      print('Error getting loan details: $e');
     }
   }
 
@@ -936,75 +934,6 @@ class _AccountinfoScreenState extends State<AccountinfoScreen> {
     return indicators;
   }
 
-  void loaddata(idcard) async {
-    var url = Uri.parse(
-      Config.UrlApi +
-          '/api/GetAccountDeposit?Cusid=' +
-          Config.CusId +
-          '&Idcard=' +
-          '$idcard',
-    );
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
-
-    var response = await http
-        .get(url, headers: headers)
-        .timeout(
-          const Duration(seconds: 90),
-          onTimeout: () {
-            loading = false;
-            return http.Response('Error', 408);
-          },
-        );
-    dynamic json = [];
-    Accountinfo = [];
-    if (response.statusCode == 200) {
-      json = jsonDecode(response.body);
-      Accountinfo = json;
-      getAccountNo('${Accountinfo[0]["accountNo"]}');
-    }
-  }
-
-  void loadDataloan(idcard) async {
-    var url = Uri.parse(
-      Config.UrlApi +
-          '/api/GetAccountLoan?Idcard=' +
-          idcard +
-          '&Cusid=' +
-          Config.CusId,
-    );
-
-    var headers = {
-      'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
-    };
-    var response = await http
-        .get(url, headers: headers)
-        .timeout(
-          const Duration(seconds: 90),
-          onTimeout: () {
-            setState(() {
-              loading = false;
-            });
-
-            return http.Response('Error', 408);
-          },
-        );
-
-    if (response.statusCode == 400) {
-      setState(() {
-        loading = false;
-      });
-    } else if (response.statusCode == 200) {
-      var json = jsonDecode(response.body);
-      loaninfo = [];
-      loaninfo = json;
-      getloanAccountNo('${loaninfo[0]["accountNo"]}');
-    }
-  }
-
   String generateRandomString(int len) {
     var r = Random();
     const _chars =
@@ -1014,14 +943,4 @@ class _AccountinfoScreenState extends State<AccountinfoScreen> {
       (index) => _chars[r.nextInt(_chars.length)],
     ).join();
   }
-
-  // Removed unused functions
-  // static Future<bool> AddData(AccountNo, AccountName, String Amount, UserId,
-  //     MovementDate, PersonId, Type, DocId) async {
-  //     ...
-  // }
-  // static Future<bool> AddDatLoan(AccountNo, AccountName, String Amount,
-  //     MovementDate, PersonId, Type, DocId) async {
-  //     ...
-  // }
 }

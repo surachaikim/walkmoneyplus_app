@@ -7,7 +7,7 @@ import 'package:walkmoney/screen/tranloan.dart';
 import 'package:walkmoney/screen/tranwithdraw.dart';
 import 'package:walkmoney/service/config.dart';
 import 'package:http/http.dart' as http;
-import 'package:walkmoney/service/loading.dart';
+import 'package:walkmoney/widgets/beautiful_loading.dart';
 
 class ChartDBScreen extends StatefulWidget {
   const ChartDBScreen({Key? key}) : super(key: key);
@@ -154,11 +154,23 @@ class _ChartDBScreenState extends State<ChartDBScreen>
       backgroundColor: Colors.transparent,
       elevation: 0,
       centerTitle: true,
+      automaticallyImplyLeading: false, // ปิดปุ่มย้อนกลับ
     );
   }
 
   Widget _buildLoadingState() {
-    return const Center(child: Loading2());
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Palette.kToDark.shade100, Palette.kToDark.shade900],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: const Center(
+        child: BeautifulLoading(message: "กำลังโหลดข้อมูลแดชบอร์ด..."),
+      ),
+    );
   }
 
   Widget _buildMainContent() {
