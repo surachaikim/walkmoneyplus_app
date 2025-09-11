@@ -27,6 +27,7 @@ dependencies:
   card_loading: ^0.2.2
   camera: ^0.10.0
   google_mlkit_text_recognition: ^0.15.0
+  google_mlkit_barcode_scanning: ^0.14.1
   image_picker: ^0.8.5+3
   image: ^4.5.4
   smooth_page_indicator: ^1.1.0

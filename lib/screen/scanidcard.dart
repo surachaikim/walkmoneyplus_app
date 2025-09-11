@@ -1,303 +1,561 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:camera/camera.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:walkmoney/screen/accountinfo.dart';
-import 'package:walkmoney/service/config.dart';
+import 'package:google_mlkit_barcode_scanning/google_mlkit_barcode_scanning.dart';
 import 'package:http/http.dart' as http;
+import 'package:internet_connection_checker/internet_connection_checker.dart';
+import 'package:walkmoney/service/config.dart';
+import 'package:walkmoney/palette.dart';
+import 'package:camera/camera.dart';
+import 'package:walkmoney/screen/scan_camera.dart';
+import 'package:walkmoney/screen/memberinfo.dart';
 
 class ScanIdcardScreen extends StatefulWidget {
-  ScanIdcardScreen({Key? key}) : super(key: key);
+  const ScanIdcardScreen({Key? key}) : super(key: key);
 
   @override
   State<ScanIdcardScreen> createState() => _ScanIdcardScreenState();
 }
 
 class _ScanIdcardScreenState extends State<ScanIdcardScreen> {
-  bool textScanning = false;
+  bool _isScanning = false;
+  String _statusText = '';
+  List _persons = [];
+  String? _lastId; // raw 13-digit idcard extracted
 
-  XFile? imageFile;
-  String scannedText = "";
-  List persons = [];
+  final TextRecognizer _textRecognizer = TextRecognizer(
+    script: TextRecognitionScript.latin,
+  );
+  final BarcodeScanner _barcodeScanner = BarcodeScanner(
+    formats: [BarcodeFormat.pdf417, BarcodeFormat.qrCode],
+  );
+  List<CameraDescription>? _cameras;
 
-  final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-  late final InputImage inputImage;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(centerTitle: true, title: const Text("แสกนบัตรประชาชน")),
-      backgroundColor: Colors.grey.shade200,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text('แสกนบัตรประชาชน'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: Container(
-        child: SingleChildScrollView(
-          child: Container(
-            margin: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                SizedBox(height: 15),
-                if (!textScanning && imageFile == null)
-                  Container(width: 300, height: 300, color: Colors.grey[300]!),
-                if (imageFile != null)
-                  Container(
-                    width: 300,
-                    height: 300,
-                    child: Image.file(File(imageFile!.path)),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Palette.kToDark.shade100, Palette.kToDark.shade900],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(24),
+                      topRight: Radius.circular(24),
+                    ),
                   ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    /*Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 5),
-                        padding: const EdgeInsets.only(top: 10),
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.grey,
-                            shadowColor: Colors.grey[400],
-                            elevation: 10,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8.0)),
-                          ),
-                          onPressed: () {
-                            getImage(ImageSource.gallery);
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(
-                                vertical: 5, horizontal: 5),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.image,
-                                  size: 30,
-                                ),
-                                Text(
-                                  "Gallery",
-                                  style: TextStyle(
-                                      fontSize: 13, color: Colors.grey[600]),
-                                )
-                              ],
-                            ),
-                          ),
-                        )),*/
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 5),
-                      padding: const EdgeInsets.only(top: 10),
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Colors.grey,
-                          backgroundColor: Colors.white,
-                          shadowColor: Colors.grey[400],
-                          elevation: 10,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8.0),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Illustration
+                        Center(
+                          child: Image.asset(
+                            'assets/images/idcard.png',
+                            width: 120,
+                            height: 120,
+                            fit: BoxFit.contain,
                           ),
                         ),
-                        onPressed: () {
-                          getImage(ImageSource.camera);
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(
-                            vertical: 5,
-                            horizontal: 5,
+                        const SizedBox(height: 12),
+                        // Status banner
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
                           ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
+                          decoration: BoxDecoration(
+                            color:
+                                _isScanning
+                                    ? Colors.amber.withOpacity(0.15)
+                                    : (_statusText.contains('ไม่พบ') ||
+                                        _statusText.contains('ผิดพลาด'))
+                                    ? Colors.red.withOpacity(0.1)
+                                    : Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color:
+                                  _isScanning
+                                      ? Colors.amber.shade300
+                                      : (_statusText.contains('ไม่พบ') ||
+                                          _statusText.contains('ผิดพลาด'))
+                                      ? Colors.red.shade300
+                                      : Colors.green.shade300,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.camera_alt, size: 30),
-                              Text(
-                                "ถ่ายรูป",
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.grey[600],
+                              Icon(
+                                _isScanning
+                                    ? Icons.autorenew_rounded
+                                    : (_statusText.contains('ไม่พบ') ||
+                                        _statusText.contains('ผิดพลาด'))
+                                    ? Icons.error_outline
+                                    : Icons.verified_rounded,
+                                size: 18,
+                                color:
+                                    _isScanning
+                                        ? Colors.amber.shade800
+                                        : (_statusText.contains('ไม่พบ') ||
+                                            _statusText.contains('ผิดพลาด'))
+                                        ? Colors.red.shade700
+                                        : Colors.green.shade800,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  _statusText.isEmpty
+                                      ? 'พร้อมสแกน'
+                                      : _statusText,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color:
+                                        _isScanning
+                                            ? Colors.amber.shade800
+                                            : (_statusText.contains('ไม่พบ') ||
+                                                _statusText.contains('ผิดพลาด'))
+                                            ? Colors.red.shade700
+                                            : Colors.green.shade800,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 12),
+                        // Guidance
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blueGrey.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.blueGrey.withOpacity(0.15),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              Icon(
+                                Icons.info_outline,
+                                size: 18,
+                                color: Colors.blueGrey,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'ถ่ายภาพบัตรให้ชัด อ่านได้ทั้งตัวอักษรและบาร์โค้ด (PDF417) โดยจัดบัตรให้เต็มกรอบและแสงสว่างพอ',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed:
+                                _isScanning ? null : _openCameraWithFrame,
+                            icon: const Icon(Icons.camera_alt),
+                            label: const Text('ถ่ายรูป'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              backgroundColor: Colors.indigo,
+                              foregroundColor: Colors.white,
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (_isScanning)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                        if (!_isScanning &&
+                            _lastId != null &&
+                            _persons.isNotEmpty)
+                          Card(
+                            elevation: 1,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.person,
+                                        color: Colors.green,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          '${_persons[0]['title']}${_persons[0]['firstName']} ${_persons[0]['lastName']}',
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.badge_outlined,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '${_persons[0]['idcardshow']}',
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Icon(
+                                        Icons.location_on_outlined,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          '${_persons[0]['addrNo']} ม.${_persons[0]['moo']} ต.${_persons[0]['locality']} อ.${_persons[0]['district']} จ.${_persons[0]['province']} ${_persons[0]['zipCode']}',
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        if (!_isScanning && _lastId != null && _persons.isEmpty)
+                          Card(
+                            elevation: 0,
+                            color: Colors.red.withOpacity(0.06),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(
+                                color: Colors.red.withOpacity(0.2),
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.search_off,
+                                    color: Colors.red.shade700,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'ไม่พบสมาชิก',
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 20),
-                Container(
-                  child: Text(scannedText, style: TextStyle(fontSize: 20)),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  void getImage(ImageSource source) async {
+  // _pickImage removed; using live camera with overlay instead
+
+  Future<void> _openCameraWithFrame() async {
     try {
-      final pickedImage = await ImagePicker().pickImage(source: source);
-      if (pickedImage != null) {
-        textScanning = true;
-        imageFile = pickedImage;
-        setState(() {});
-        getRecognisedText(pickedImage);
+      setState(() => _isScanning = false);
+      // Lazy load available cameras
+      _cameras ??= await availableCameras();
+      if (!mounted) return;
+      final XFile? photo = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ScanCameraScreen(cameras: _cameras!),
+          fullscreenDialog: true,
+        ),
+      );
+      if (photo == null) return;
+      setState(() {
+        _isScanning = true;
+        _statusText = 'กำลังประมวลผล...';
+      });
+      final id = await _extractThaiIdFromImage(photo);
+      if (!mounted) return;
+      if (id != null) {
+        setState(() {
+          _lastId = id;
+          _statusText = 'พบเลขบัตร: ${_formatThaiId(id)}';
+        });
+        await _fetchMemberByIdcard(id);
+      } else {
+        setState(() {
+          _statusText = 'ไม่พบเลขบัตร ลองถ่ายใหม่ให้ชัดขึ้น';
+          _isScanning = false;
+        });
       }
     } catch (e) {
-      textScanning = false;
-      imageFile = null;
-      scannedText = "Error occured while scanning";
-      setState(() {});
+      if (!mounted) return;
+      setState(() {
+        _statusText = 'ไม่สามารถเปิดกล้องได้';
+        _isScanning = false;
+      });
     }
   }
 
-  void getRecognisedText(XFile image) async {
-    var i = 0;
-    final RecognizedText recognizedText = await textRecognizer.processImage(
-      InputImage.fromFilePath(image.path),
-    );
+  Future<String?> _extractThaiIdFromImage(XFile image) async {
+    final input = InputImage.fromFilePath(image.path);
 
-    // String text = recognizedText.text;
-    for (TextBlock block in recognizedText.blocks) {
-      // final String text = block.text;
-      // final List<String> languages = block.recognizedLanguages;
-
-      for (TextLine line in block.lines) {
-        // Same getters as TextBlock
-        i++;
-        try {
-          if (i == 5) {
-            var per = line.text.split(" ");
-            scannedText = per[0] + per[1] + per[2] + per[3] + per[4];
-          }
-        } catch (_) {}
-
-        try {
-          if (i == 7) {
-            var per = line.text.split(" ");
-            scannedText = per[0] + per[1] + per[2] + per[3] + per[4];
-          }
-        } catch (_) {}
-
-        try {
-          if (i == 6) {
-            var per = line.text.split(" ");
-            scannedText = per[0] + per[1] + per[2] + per[3] + per[4];
-          }
-        } catch (_) {}
-
-        /* for (TextElement element in line.elements) {
-          i++;
-
-          if (i >= 6 && i <= 19) {
-            scannedText = scannedText + element.text;
-          }
-        }*/
+    // Try barcode first
+    try {
+      final barcodes = await _barcodeScanner.processImage(input);
+      for (final code in barcodes) {
+        final raw = code.rawValue ?? '';
+        final id = _parseThaiIdFromText(raw);
+        if (id != null) return id;
       }
-    }
-    getmemberByqrIdcard(scannedText);
+    } catch (_) {}
 
-    setState(() {});
+    // Fallback to OCR
+    try {
+      final result = await _textRecognizer.processImage(input);
+      final text = result.text;
+      final id = _parseThaiIdFromText(text);
+      if (id != null) return id;
+    } catch (_) {}
+
+    return null;
   }
 
-  Future<void> getmemberByqrIdcard(idcard) async {
-    var url = Uri.parse(
-      Config.UrlApi +
-          "/api/GetMemberByIdcard?Idcard=" +
-          idcard +
-          "&Cusid=" +
-          Config.CusId,
+  String? _parseThaiIdFromText(String text) {
+    final normalized = text.replaceAll('\n', ' ');
+    final regex = RegExp(r'(\d[- ]?\d{4}[- ]?\d{5}[- ]?\d{2}[- ]?\d|\d{13})');
+    final match = regex.firstMatch(normalized);
+    if (match == null) return null;
+    final digits = match.group(0)!.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length != 13) return null;
+    if (!_isValidThaiId(digits)) return null;
+    return digits;
+  }
+
+  bool _isValidThaiId(String digits) {
+    if (digits.length != 13) return false;
+    int sum = 0;
+    for (int i = 0; i < 12; i++) {
+      sum += int.parse(digits[i]) * (13 - i);
+    }
+    final check = (11 - (sum % 11)) % 10;
+    return check == int.parse(digits[12]);
+  }
+
+  String _formatThaiId(String digits) {
+    if (digits.length != 13) return digits;
+    return '${digits[0]}-${digits.substring(1, 5)}-${digits.substring(5, 10)}-${digits.substring(10, 12)}-${digits.substring(12)}';
+  }
+
+  Future<void> _fetchMemberByIdcard(String idcard) async {
+    // Check internet connectivity quickly
+    final hasInternet = await InternetConnectionChecker().hasConnection;
+    if (!hasInternet) {
+      if (!mounted) return;
+      setState(() {
+        _isScanning = false;
+        _statusText = 'ไม่มีการเชื่อมต่ออินเทอร์เน็ต';
+      });
+      await _showAlert('ไม่มีการเชื่อมต่ออินเทอร์เน็ต');
+      return;
+    }
+
+    // Validate required configuration
+    if (Config.CusId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isScanning = false;
+        _statusText = 'Cusid ว่าง กรุณาเข้าสู่ระบบใหม่';
+      });
+      await _showAlert('Cusid ว่าง กรุณาเข้าสู่ระบบใหม่');
+      return;
+    }
+
+    final url = Uri.parse(
+      '${Config.UrlApi}/api/GetMemberByIdcard?Idcard=$idcard&Cusid=${Config.CusId}',
     );
-
-    var headers = {
+    final headers = {
       'Verify_identity': Config.Verify_identity,
-      "Accept": "application/json",
+      'Accept': 'application/json',
     };
-    var response = await http.get(url, headers: headers);
 
-    if (response.body != []) {
-      var json = jsonDecode(response.body);
-      persons = json;
-      if (persons.length > 0) {
+    http.Response resp;
+    try {
+      resp = await http
+          .get(url, headers: headers)
+          .timeout(const Duration(seconds: 12));
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _isScanning = false;
+        _statusText = 'การเชื่อมต่อล้มเหลว (หมดเวลา)';
+      });
+      await _showAlert('การเชื่อมต่อล้มเหลว (หมดเวลา)');
+      return;
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isScanning = false;
+        _statusText = 'เกิดข้อผิดพลาดในการเชื่อมต่อ';
+      });
+      await _showAlert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+      return;
+    }
+
+    if (!mounted) return;
+    try {
+      if (resp.statusCode != 200) {
+        setState(() {
+          _isScanning = false;
+          _statusText = 'เซิร์ฟเวอร์ตอบกลับผิดพลาด (HTTP ${resp.statusCode})';
+          _persons = [];
+        });
+        return;
+      }
+
+      final body = resp.body;
+      if (body.isEmpty) {
+        setState(() {
+          _isScanning = false;
+          _statusText = 'ข้อมูลว่างจากเซิร์ฟเวอร์';
+          _persons = [];
+        });
+        return;
+      }
+
+      final data = jsonDecode(body);
+      if (data is List && data.isNotEmpty) {
+        setState(() {
+          _persons = data;
+          _isScanning = false;
+          _statusText = 'พบสมาชิก ${data.length} รายการ';
+        });
+        // Navigate to Memberinfo for the first matched person
+        if (!mounted) return;
+        final p = data[0];
         Navigator.push(
           context,
           MaterialPageRoute(
             builder:
-                (context) => AccountinfoScreen(
-                  personid: persons[0]['personId'],
-                  idcard: persons[0]['idcard'],
-                  idcardshow: persons[0]['idcardshow'],
+                (_) => Memberinfo(
+                  personid: p['personId']?.toString() ?? '',
                   name:
-                      persons[0]['title'] +
-                      persons[0]['firstName'] +
-                      ' ' +
-                      persons[0]['lastName'],
+                      '${p['title'] ?? ''}${p['firstName'] ?? ''} ${p['lastName'] ?? ''}',
+                  idcard: p['idcard']?.toString() ?? (_lastId ?? ''),
+                  idcardshow: p['idcardshow']?.toString() ?? '',
                   adress1:
-                      persons[0]['addrNo'] +
-                      ' ม.' +
-                      persons[0]['moo'] +
-                      ' ต.' +
-                      persons[0]['locality'] +
-                      ' อ.' +
-                      persons[0]['district'] +
-                      ' จ.' +
-                      persons[0]['province'] +
-                      ' ' +
-                      persons[0]['zipCode'],
+                      '${p['addrNo'] ?? ''} ม.${p['moo'] ?? ''} ต.${p['locality'] ?? ''} อ.${p['district'] ?? ''} จ.${p['province'] ?? ''} ${p['zipCode'] ?? ''}',
                   adress2:
-                      persons[0]['addrNo1'] +
-                      ' ม.' +
-                      persons[0]['moo1'] +
-                      ' ต.' +
-                      persons[0]['locality1'] +
-                      ' อ.' +
-                      persons[0]['district1'] +
-                      ' จ.' +
-                      persons[0]['province1'] +
-                      ' ' +
-                      persons[0]['zipCode1'],
-                  phone: persons[0]['phone'],
+                      '${p['addrNo1'] ?? ''} ม.${p['moo1'] ?? ''} ต.${p['locality1'] ?? ''} อ.${p['district1'] ?? ''} จ.${p['province1'] ?? ''} ${p['zipCode1'] ?? ''}',
+                  phone: p['phone']?.toString() ?? '',
                 ),
           ),
         );
+      } else {
+        setState(() {
+          _persons = [];
+          _isScanning = false;
+          _statusText = 'ไม่พบสมาชิก';
+        });
       }
-      textScanning = false;
+    } catch (e) {
       setState(() {
-        persons = json;
+        _isScanning = false;
+        _statusText = 'เกิดข้อผิดพลาดในการประมวลผลข้อมูล';
+        _persons = [];
       });
-    } else {
-      textScanning = false;
-      _showMyDialog();
     }
   }
 
-  Future<void> _showMyDialog() async {
+  Future<void> _showAlert(String message) async {
+    if (!mounted) return;
     return showDialog<void>(
       context: context,
-      barrierDismissible: false, // user must tap button!
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('แจ้งเตือน'),
-          content: SingleChildScrollView(
-            child: ListBody(children: <Widget>[Text('ไม่พบสมาชิก !!!')]),
+      barrierDismissible: true,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('แจ้งเตือน'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('ตกลง'),
+              ),
+            ],
           ),
-          actions: <Widget>[
-            ElevatedButton(
-              child: const Text('ตกลง'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
     );
   }
 
   @override
-  void initState() {
-    super.initState();
+  void dispose() {
+    _textRecognizer.close();
+    _barcodeScanner.close();
+    super.dispose();
   }
 }
+
+// Overlay painter removed for simplified UX (no preview mode)

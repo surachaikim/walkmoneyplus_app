@@ -234,7 +234,7 @@ class _MemberinfoState extends State<Memberinfo> {
                   _buildInfoRow(
                     Icons.credit_card,
                     "เลขบัตรประชาชน",
-                    widget.idcardshow,
+                    _formatThaiId(widget.idcard),
                   ),
                   _buildInfoRow(Icons.phone, "เบอร์โทร", widget.phone),
                   _buildInfoRow(Icons.location_on, "ที่อยู่", widget.adress1),
@@ -246,6 +246,13 @@ class _MemberinfoState extends State<Memberinfo> {
     );
   }
 
+  // Format Thai ID as 1-2345-67890-12-3 (keeps original if not 13 digits)
+  String _formatThaiId(String id) {
+    final digits = id.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length != 13) return id;
+    return '${digits[0]}-${digits.substring(1, 5)}-${digits.substring(5, 10)}-${digits.substring(10, 12)}-${digits.substring(12)}';
+  }
+
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -253,18 +260,15 @@ class _MemberinfoState extends State<Memberinfo> {
         children: [
           Icon(icon, color: Colors.grey[600]),
           SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: TextStyle(color: Colors.grey[600])),
-              SizedBox(height: 3),
-              Text(
-                value,
-                style: TextStyle(fontSize: 12),
-                softWrap: true,
-                overflow: TextOverflow.visible,
-              ),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(color: Colors.grey[600])),
+                SizedBox(height: 3),
+                Text(value, style: TextStyle(fontSize: 12), softWrap: true),
+              ],
+            ),
           ),
         ],
       ),

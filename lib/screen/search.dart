@@ -9,6 +9,7 @@ import 'package:walkmoney/screen/searchidcard.dart';
 import 'package:walkmoney/screen/serachpersonid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:walkmoney/screen/scanidcard.dart';
 
 class SearchMainScreen extends StatefulWidget {
   const SearchMainScreen({super.key});
@@ -304,7 +305,13 @@ class _SearchMainScreenState extends State<SearchMainScreen>
                         Palette.kToDark.shade300,
                         Palette.kToDark.shade500,
                       ],
-                      onTap: () => getImage(ImageSource.camera),
+                      onTap:
+                          () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ScanIdcardScreen(),
+                            ),
+                          ),
                     ),
                     _buildSearchCard(
                       icon: 'assets/images/search4.png',

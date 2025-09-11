@@ -40,18 +40,17 @@ class _MenuscreenState extends State<Menuscreen> with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) {
-      updateuselogin(Config.UserName, Config.Password, "0");
-    } else if (state == AppLifecycleState.resumed) {
-      updateuselogin(Config.UserName, Config.Password, "1");
-    } else if (state == AppLifecycleState.detached) {
-      updateuselogin(Config.UserName, Config.Password, "0");
-    } else if (state == AppLifecycleState.inactive) {
-      updateuselogin(Config.UserName, Config.Password, "0");
-    }
-  }
-
+  // void didChangeAppLifecycleState(AppLifecycleState state) {
+  //   if (state == AppLifecycleState.paused) {
+  //     updateuselogin(Config.UserName, Config.Password, "0");
+  //   } else if (state == AppLifecycleState.resumed) {
+  //     updateuselogin(Config.UserName, Config.Password, "1");
+  //   } else if (state == AppLifecycleState.detached) {
+  //     updateuselogin(Config.UserName, Config.Password, "0");
+  //   } else if (state == AppLifecycleState.inactive) {
+  //     updateuselogin(Config.UserName, Config.Password, "0");
+  //   }
+  // }
   int _selectedIndex = 0;
   final List<Widget> _pageWidget = <Widget>[
     SearchMainScreen(),
