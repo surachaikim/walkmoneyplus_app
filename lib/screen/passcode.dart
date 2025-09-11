@@ -29,6 +29,8 @@ class _PassCodeScreenState extends State<PassCodeScreen>
   List<List<infologin>> info = [];
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
+  // API URL preload only (config moved to Register screen)
+  final TextEditingController _apiController = TextEditingController();
 
   @override
   void initState() {
@@ -40,22 +42,37 @@ class _PassCodeScreenState extends State<PassCodeScreen>
     _shakeAnimation = Tween<double>(begin: 0, end: 24).animate(
       CurvedAnimation(parent: _shakeController, curve: Curves.elasticIn),
     );
+    _apiController.text = Config.UrlApi;
     checkConnection();
   }
 
   @override
   void dispose() {
     _shakeController.dispose();
+    _apiController.dispose();
     super.dispose();
   }
 
   Future<void> checkConnection() async {
+    // Load stored API URL first
+    await _loadApiUrlFromPrefs();
     bool result = await InternetConnectionChecker().hasConnection;
     if (result) {
       await loadSharedPreferences();
     } else {
       _showNoInternetDialog();
     }
+  }
+
+  Future<void> _loadApiUrlFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('api_url');
+      if (saved != null && saved.isNotEmpty && saved != Config.UrlApi) {
+        Config.UrlApi = saved;
+        _apiController.text = saved;
+      }
+    } catch (_) {}
   }
 
   void _showNoInternetDialog() {
@@ -286,7 +303,9 @@ class _PassCodeScreenState extends State<PassCodeScreen>
               end: Alignment.bottomRight,
             ),
           ),
-          child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+          child: const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
         ),
       );
     }
@@ -344,6 +363,8 @@ class _PassCodeScreenState extends State<PassCodeScreen>
       ],
     );
   }
+
+  // Secret API config removed from this screen.
 
   Widget _buildPinDisplay() {
     return AnimatedBuilder(

@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:form_field_validator/form_field_validator.dart';
+import 'dart:async';
 
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:walkmoney/model/cusid.dart';
-import 'package:walkmoney/model/profile.dart';
+// import 'package:walkmoney/model/cusid.dart';
+// import 'package:walkmoney/model/profile.dart';
 import 'package:walkmoney/palette.dart';
-import 'package:walkmoney/screen/login.dart';
+// import 'package:walkmoney/screen/login.dart';
 import 'package:walkmoney/screen/passcode.dart';
-import 'package:walkmoney/screen/process.dart';
+// import 'package:walkmoney/screen/process.dart';
 import 'package:walkmoney/service/config.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -17,7 +18,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 
 import 'package:permission_handler/permission_handler.dart';
 
-import '../loading.dart';
+// import '../loading.dart';
 import '../model/infologin.dart';
 
 class RegisterAppScreen extends StatefulWidget {
@@ -29,25 +30,29 @@ class RegisterAppScreen extends StatefulWidget {
 
 class _RegisterAppScreenState extends State<RegisterAppScreen> {
   final formkey = GlobalKey<FormState>();
-  final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
+  // final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
 
   bool userchk = false;
   String Mac = '';
   bool loading = false;
   List infoLogin = [];
   List cusinfo = [];
-  String _MacCheck = "";
+  // String _MacCheck = "";
   String _cusid = '';
   String _username = '';
   String _password = '';
   String _pin = '';
-  String _platformVersion = 'Unknown';
+  // String _platformVersion = 'Unknown';
 
   List<List<infologin>> info = [];
 
+  // Secret taps for API config
+  int _secretTapCount = 0;
+  Timer? _secretTapTimer;
+
   Future<void> initPlatformState() async {
     String deviceId = "";
-    String deviceName = "";
+    // String deviceName = "";
 
     try {
       if (await Permission.contacts.request().isGranted) {
@@ -64,13 +69,13 @@ class _RegisterAppScreenState extends State<RegisterAppScreen> {
       final deviceInfo = DeviceInfoPlugin();
       final androidInfo = await deviceInfo.androidInfo;
       deviceId = androidInfo.id;
-      deviceName = androidInfo.model;
+      // androidInfo.model; // device name not used
     } on PlatformException {
       // deviceId = 'Failed to get device id.';
     }
     if (!mounted) return;
     setState(() {
-      _MacCheck = deviceId;
+      // _MacCheck = deviceId;
       Mac = deviceId;
     });
   }
@@ -79,14 +84,122 @@ class _RegisterAppScreenState extends State<RegisterAppScreen> {
   void initState() {
     super.initState();
     initPlatformState();
+    _loadApiUrlFromPrefs();
+  }
+
+  @override
+  void dispose() {
+    _secretTapTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadApiUrlFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('api_url');
+      if (saved != null && saved.isNotEmpty && saved != Config.UrlApi) {
+        Config.UrlApi = saved;
+      }
+    } catch (_) {}
+  }
+
+  void _onSecretTitleTap() {
+    // 5 taps within 2 seconds opens the API config dialog
+    _secretTapTimer?.cancel();
+    _secretTapTimer = Timer(const Duration(seconds: 2), () {
+      _secretTapCount = 0;
+    });
+    _secretTapCount++;
+    if (_secretTapCount >= 5) {
+      _secretTapCount = 0;
+      _secretTapTimer?.cancel();
+      _showApiConfigDialog();
+    }
+  }
+
+  void _showApiConfigDialog() {
+    const devUrl = 'https://mixprodev.mcloudcenter.com/WalkMoney';
+    const pdUrl = 'https://mcloudcenter.com/WalkMoney';
+    String selected =
+        (Config.UrlApi == devUrl)
+            ? 'dev'
+            : (Config.UrlApi == pdUrl)
+            ? 'pd'
+            : 'pd';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text('ตั้งค่า API'),
+          content: StatefulBuilder(
+            builder: (context, setStateSB) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RadioListTile<String>(
+                    value: 'dev',
+                    groupValue: selected,
+                    onChanged: (v) => setStateSB(() => selected = v!),
+                    title: const Text('DEV'),
+                    subtitle: const Text(
+                      'https://mixprodev.mcloudcenter.com/WalkMoney',
+                    ),
+                  ),
+                  RadioListTile<String>(
+                    value: 'pd',
+                    groupValue: selected,
+                    onChanged: (v) => setStateSB(() => selected = v!),
+                    title: const Text('PD'),
+                    subtitle: const Text('https://mcloudcenter.com/WalkMoney'),
+                  ),
+                ],
+              );
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('ยกเลิก'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final url = selected == 'dev' ? devUrl : pdUrl;
+                try {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('api_url', url);
+                  Config.UrlApi = url;
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('ใช้ API: ${selected.toUpperCase()}'),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  _showErrorDialog('ไม่สามารถบันทึกการตั้งค่าได้');
+                }
+              },
+              child: const Text('บันทึก'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return loading
-        ? Loading()
-        : Scaffold(
-            body: Container(
+    return Scaffold(
+      body: Stack(
+        children: [
+          IgnorePointer(
+            ignoring: loading,
+            child: Container(
               width: double.infinity,
               height: double.infinity,
               decoration: BoxDecoration(
@@ -116,14 +229,17 @@ class _RegisterAppScreenState extends State<RegisterAppScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             const SizedBox(height: 10),
-                            Text(
-                              "ลงทะเบียนผู้ใช้งาน",
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: Palette.kToDark.shade400,
+                            GestureDetector(
+                              onTap: _onSecretTitleTap,
+                              child: Text(
+                                "ลงทะเบียนผู้ใช้งาน",
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Palette.kToDark.shade400,
+                                ),
+                                textAlign: TextAlign.center,
                               ),
-                              textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 30),
                             _buildTextFormField(
@@ -166,7 +282,11 @@ class _RegisterAppScreenState extends State<RegisterAppScreen> {
                 ),
               ),
             ),
-          );
+          ),
+          if (loading) _buildLoadingOverlay(),
+        ],
+      ),
+    );
   }
 
   Widget _buildTextFormField({
@@ -207,17 +327,73 @@ class _RegisterAppScreenState extends State<RegisterAppScreen> {
       width: double.infinity,
       height: 54,
       child: ElevatedButton.icon(
-        icon: const Icon(Icons.check_circle_outline, size: 28),
-        label: const Text("ลงทะเบียน",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        icon:
+            loading
+                ? SizedBox(
+                  height: 22,
+                  width: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+                : const Icon(Icons.check_circle_outline, size: 28),
+        label: Text(
+          loading ? "กำลังดำเนินการ..." : "ลงทะเบียน",
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
         style: ElevatedButton.styleFrom(
           backgroundColor: Palette.kToDark.shade400,
           foregroundColor: Colors.white,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           elevation: 6,
         ),
-        onPressed: _handleRegister,
+        onPressed: loading ? null : _handleRegister,
+      ),
+    );
+  }
+
+  Widget _buildLoadingOverlay() {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withOpacity(0.45),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  height: 26,
+                  width: 26,
+                  child: CircularProgressIndicator(strokeWidth: 3),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  'กำลังลงทะเบียน...',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Palette.kToDark.shade500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -343,8 +519,9 @@ class _RegisterAppScreenState extends State<RegisterAppScreen> {
   }
 
   Future<bool> _checkUser(String user, String cusid) async {
-    var url =
-        Uri.parse("${Config.UrlApi}/api/CheckUser?User=$user&Cusid=$cusid");
+    var url = Uri.parse(
+      "${Config.UrlApi}/api/CheckUser?User=$user&Cusid=$cusid",
+    );
     var headers = {
       'Verify_identity': Config.Verify_identity,
       "Accept": "application/json",
