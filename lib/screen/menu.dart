@@ -133,7 +133,7 @@ class _MenuscreenState extends State<Menuscreen> with WidgetsBindingObserver {
             onTap: _onItemTapped,
             backgroundColor: Colors.white,
             unselectedItemColor: Colors.grey,
-            selectedItemColor: Color(0xFF1976D2),
+            selectedItemColor: Color.fromARGB(255, 0, 0, 0),
             currentIndex: _selectedIndex,
             items: _menuBar,
             selectedLabelStyle: TextStyle(fontWeight: FontWeight.bold),
@@ -143,7 +143,7 @@ class _MenuscreenState extends State<Menuscreen> with WidgetsBindingObserver {
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         floatingActionButton: FloatingActionButton(
-          backgroundColor: Color(0xFF1976D2),
+          backgroundColor: Color.fromARGB(255, 1, 15, 41),
           elevation: 8,
           tooltip: 'ค้นหา (ชื่อ-นามสกุล)',
           child: Icon(Icons.search, color: Colors.white, size: 30),

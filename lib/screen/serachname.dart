@@ -143,14 +143,22 @@ class SerachnameScreenState extends State<SerachnameScreen> {
                           ? _buildShimmerLoading()
                           : persons.isEmpty
                           ? _buildEmptyState()
-                          : ListView.builder(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: persons.length,
-                            itemBuilder: (context, index) {
-                              var person = persons[index];
-                              return _buildMemberCard(person, index);
-                            },
+                          : Container(
+                            color: Colors.white,
+                            child: ListView.separated(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: persons.length,
+                              separatorBuilder:
+                                  (_, __) => Divider(
+                                    height: 1,
+                                    thickness: 1,
+                                    color: Colors.grey.shade300,
+                                  ),
+                              itemBuilder: (context, index) {
+                                final person = persons[index];
+                                return _buildMemberRow(person);
+                              },
+                            ),
                           ),
                 ),
               ],
@@ -329,137 +337,87 @@ class SerachnameScreenState extends State<SerachnameScreen> {
     );
   }
 
-  Widget _buildMemberCard(Map person, int index) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 2,
-            offset: const Offset(0, 4),
+  Widget _buildMemberRow(Map person) {
+    final title =
+        (person['title'] ?? '').toString() +
+        (person['firstName'] ?? '').toString() +
+        ' ' +
+        (person['lastName'] ?? '').toString();
+    final idshow = (person['idcardshow'] ?? '').toString();
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => Memberinfo(
+                  personid: person['personId'],
+                  idcardshow: person['idcardshow'],
+                  idcard: person['idcard'],
+                  name: title,
+                  adress1:
+                      person['addrNo'] +
+                      ' ม.' +
+                      person['moo'] +
+                      ' ต.' +
+                      person['locality'] +
+                      ' อ.' +
+                      person['district'] +
+                      ' จ.' +
+                      person['province'] +
+                      ' ' +
+                      person['zipCode'],
+                  adress2:
+                      person['addrNo1'] +
+                      ' ม.' +
+                      person['moo1'] +
+                      ' ต.' +
+                      person['locality1'] +
+                      ' อ.' +
+                      person['district1'] +
+                      ' จ.' +
+                      person['province1'] +
+                      ' ' +
+                      person['zipCode1'],
+                  phone: person['phone'],
+                ),
           ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () async {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder:
-                    (context) => Memberinfo(
-                      personid: person['personId'],
-                      idcardshow: person['idcardshow'],
-                      idcard: person['idcard'],
-                      name:
-                          person['title'] +
-                          person['firstName'] +
-                          ' ' +
-                          person['lastName'],
-                      adress1:
-                          person['addrNo'] +
-                          ' ม.' +
-                          person['moo'] +
-                          ' ต.' +
-                          person['locality'] +
-                          ' อ.' +
-                          person['district'] +
-                          ' จ.' +
-                          person['province'] +
-                          ' ' +
-                          person['zipCode'],
-                      adress2:
-                          person['addrNo1'] +
-                          ' ม.' +
-                          person['moo1'] +
-                          ' ต.' +
-                          person['locality1'] +
-                          ' อ.' +
-                          person['district1'] +
-                          ' จ.' +
-                          person['province1'] +
-                          ' ' +
-                          person['zipCode1'],
-                      phone: person['phone'],
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            const Icon(Icons.person_outline, color: Colors.black54),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.black87,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    idshow,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  ),
+                ],
               ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(10),
-            child: Row(
-              children: [
-                Hero(
-                  tag: 'member_${person['personId']}',
-                  child: Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Palette.kToDark.shade200,
-                          Palette.kToDark.shade400,
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Palette.kToDark.shade200.withOpacity(0.4),
-                          spreadRadius: 1,
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.person_outline,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        person['title'].toString() +
-                            person['firstName'].toString() +
-                            ' ' +
-                            person['lastName'],
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Colors.black87,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        person['idcardshow'],
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.grey[400],
-                  size: 16,
-                ),
-              ],
             ),
-          ),
+            Icon(Icons.arrow_forward_ios, color: Colors.grey[400], size: 16),
+          ],
         ),
       ),
     );
   }
+
+  // _buildMemberCard removed in favor of a simple row list with dividers
 }

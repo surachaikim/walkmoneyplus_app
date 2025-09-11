@@ -133,11 +133,28 @@ class SerachIdcardScreenState extends State<SerachIdcardScreen> {
                 _buildSearchBar(),
                 _buildTitleBar(),
                 Expanded(
-                  child: Isshow
-                      ? _buildShimmerLoading()
-                      : persons.isEmpty
+                  child:
+                      Isshow
+                          ? _buildShimmerLoading()
+                          : persons.isEmpty
                           ? _buildEmptyState()
-                          : _buildListView(persons),
+                          : Container(
+                            color: Colors.white,
+                            child: ListView.separated(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: persons.length,
+                              separatorBuilder:
+                                  (_, __) => Divider(
+                                    height: 1,
+                                    thickness: 1,
+                                    color: Colors.grey.shade300,
+                                  ),
+                              itemBuilder: (context, index) {
+                                final person = persons[index];
+                                return _buildMemberRow(person);
+                              },
+                            ),
+                          ),
                 ),
               ],
             ),
@@ -149,10 +166,7 @@ class SerachIdcardScreenState extends State<SerachIdcardScreen> {
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: TextField(
         controller: txtQuery,
         style: const TextStyle(color: Colors.black, fontSize: 16),
@@ -171,10 +185,7 @@ class SerachIdcardScreenState extends State<SerachIdcardScreen> {
         },
         decoration: InputDecoration(
           hintText: "ค้นหาเลขบัตรประชาชน...",
-          hintStyle: TextStyle(
-            color: Colors.grey[500],
-            fontSize: 16,
-          ),
+          hintStyle: TextStyle(color: Colors.grey[500], fontSize: 16),
           prefixIcon: Icon(Icons.credit_card, color: Palette.kToDark.shade200),
           filled: true,
           fillColor: Colors.white,
@@ -188,26 +199,21 @@ class SerachIdcardScreenState extends State<SerachIdcardScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(
-              color: Palette.kToDark.shade200,
-              width: 2,
-            ),
+            borderSide: BorderSide(color: Palette.kToDark.shade200, width: 2),
           ),
-          suffixIcon: txtQuery.text.isNotEmpty
-              ? IconButton(
-                  icon: Icon(
-                    Icons.clear,
-                    color: Colors.grey[600],
-                  ),
-                  onPressed: () {
-                    txtQuery.clear();
-                    setState(() {
-                      title = 'รายชื่อสมาชิกทั้งหมด';
-                      persons = original;
-                    });
-                  },
-                )
-              : null,
+          suffixIcon:
+              txtQuery.text.isNotEmpty
+                  ? IconButton(
+                    icon: Icon(Icons.clear, color: Colors.grey[600]),
+                    onPressed: () {
+                      txtQuery.clear();
+                      setState(() {
+                        title = 'รายชื่อสมาชิกทั้งหมด';
+                        persons = original;
+                      });
+                    },
+                  )
+                  : null,
         ),
       ),
     );
@@ -215,10 +221,7 @@ class SerachIdcardScreenState extends State<SerachIdcardScreen> {
 
   Widget _buildTitleBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -232,10 +235,7 @@ class SerachIdcardScreenState extends State<SerachIdcardScreen> {
           ),
           if (persons.isNotEmpty)
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 4,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
@@ -333,50 +333,26 @@ class SerachIdcardScreenState extends State<SerachIdcardScreen> {
     );
   }
 
-  Widget _buildListView(List persons) {
-    return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: persons.length,
-      itemBuilder: (context, index) {
-        var person = persons[index];
-        return _buildMemberCard(person);
-      },
-    );
-  }
-
-  Widget _buildMemberCard(Map person) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => Memberinfo(
+  Widget _buildMemberRow(Map person) {
+    final title =
+        (person['title'] ?? '').toString() +
+        (person['firstName'] ?? '').toString() +
+        ' ' +
+        (person['lastName'] ?? '').toString();
+    final idshow = (person['idcardshow'] ?? '').toString();
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => Memberinfo(
                   personid: person['personId'],
                   idcardshow: person['idcardshow'],
                   idcard: person['idcard'],
-                  name: person['title'] +
-                      person['firstName'] +
-                      ' ' +
-                      person['lastName'],
-                  adress1: person['addrNo'] +
+                  name: title,
+                  adress1:
+                      person['addrNo'] +
                       ' ม.' +
                       person['moo'] +
                       ' ต.' +
@@ -387,7 +363,8 @@ class SerachIdcardScreenState extends State<SerachIdcardScreen> {
                       person['province'] +
                       ' ' +
                       person['zipCode'],
-                  adress2: person['addrNo1'] +
+                  adress2:
+                      person['addrNo1'] +
                       ' ม.' +
                       person['moo1'] +
                       ' ต.' +
@@ -400,80 +377,39 @@ class SerachIdcardScreenState extends State<SerachIdcardScreen> {
                       person['zipCode1'],
                   phone: person['phone'],
                 ),
-              ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Hero(
-                  tag: 'member_${person['personId']}',
-                  child: Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Palette.kToDark.shade200,
-                          Palette.kToDark.shade400
-                        ],
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Palette.kToDark.shade200.withOpacity(0.4),
-                          spreadRadius: 1,
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.credit_card,
-                      color: Colors.white,
-                      size: 28,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        person['idcardshow'],
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Palette.kToDark.shade400,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        person['title'].toString() +
-                            person['firstName'].toString() +
-                            ' ' +
-                            person['lastName'],
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: Colors.black87,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.grey[400],
-                  size: 16,
-                ),
-              ],
-            ),
           ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            const Icon(Icons.person_outline, color: Colors.black54),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    idshow,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, color: Colors.grey[400], size: 16),
+          ],
         ),
       ),
     );
