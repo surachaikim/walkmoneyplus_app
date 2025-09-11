@@ -370,13 +370,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         letterSpacing: 0.5,
                       ),
                     ),
-                    Text(
-                      "แอปพลิเคชันการเงินดิจิทัล",
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.7),
-                      ),
-                    ),
                   ],
                 ),
               ),

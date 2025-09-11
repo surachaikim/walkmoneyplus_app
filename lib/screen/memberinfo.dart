@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:walkmoney/palette.dart';
-import 'package:walkmoney/screen/mycard_loan.dart';
+import 'package:walkmoney/screen/mycardloan.dart';
 import 'package:walkmoney/widgets/beautiful_loading.dart';
 import 'package:walkmoney/service/member_service.dart';
 
-import 'accountdeposit.dart';
+import 'mycarddeposit.dart';
 
 class Memberinfo extends StatefulWidget {
   const Memberinfo({
@@ -181,7 +181,7 @@ class _MemberinfoState extends State<Memberinfo> {
   Widget _buildMemberInfoCard() {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      elevation: 5,
+      elevation: 3,
       child: Container(
         padding: EdgeInsets.all(15),
         child: Column(
@@ -189,7 +189,7 @@ class _MemberinfoState extends State<Memberinfo> {
             Row(
               children: [
                 CircleAvatar(
-                  radius: 30,
+                  radius: 20,
                   backgroundImage: AssetImage('assets/images/userlist.png'),
                 ),
                 SizedBox(width: 15),
@@ -199,14 +199,14 @@ class _MemberinfoState extends State<Memberinfo> {
                     Text(
                       widget.name,
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 5),
                     Text(
                       widget.personid,
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -258,7 +258,12 @@ class _MemberinfoState extends State<Memberinfo> {
             children: [
               Text(label, style: TextStyle(color: Colors.grey[600])),
               SizedBox(height: 3),
-              Text(value, style: TextStyle(fontSize: 14), maxLines: 2),
+              Text(
+                value,
+                style: TextStyle(fontSize: 12),
+                softWrap: true,
+                overflow: TextOverflow.visible,
+              ),
             ],
           ),
         ],
@@ -297,8 +302,11 @@ class _MemberinfoState extends State<Memberinfo> {
             unselectedLabelColor: Colors.white70,
             indicatorColor: Colors.tealAccent,
           ),
+          // Use 0.5 height if 0-1 deposit account; use 0.53 if multiple accounts
           Container(
-            height: MediaQuery.of(context).size.height * 0.39,
+            height:
+                MediaQuery.of(context).size.height *
+                ((Accountinfo.length <= 1) ? 0.48 : 0.53),
             child: TabBarView(
               children: [_buildDepositPage(), _buildLoanPage()],
             ),

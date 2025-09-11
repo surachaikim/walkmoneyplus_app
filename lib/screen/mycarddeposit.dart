@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import 'addloan.dart';
+import 'adddeposit.dart';
+import 'addwithdraw.dart';
 
-class MyCardLoan extends StatelessWidget {
+class MyCardDeposit extends StatelessWidget {
   final String balance;
   final int cardNumber;
   final String name;
@@ -10,12 +11,9 @@ class MyCardLoan extends StatelessWidget {
   final String typeaccount;
   final String status;
   final Color color;
-  final String minPayment;
-  final List loaninfo;
-  final String term;
-  final String totalamount;
+  final List movementinfo;
 
-  const MyCardLoan({
+  const MyCardDeposit({
     Key? key,
     required this.balance,
     required this.cardNumber,
@@ -24,10 +22,7 @@ class MyCardLoan extends StatelessWidget {
     required this.typeaccount,
     required this.status,
     required this.color,
-    required this.minPayment,
-    required this.loaninfo,
-    required this.term,
-    required this.totalamount,
+    required this.movementinfo,
   }) : super(key: key);
 
   @override
@@ -42,7 +37,7 @@ class MyCardLoan extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header ribbon with gradient (orange tone for loan)
+            // Header ribbon with gradient
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16.0),
@@ -50,7 +45,7 @@ class MyCardLoan extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFFFF8A65), Color(0xFFD84315)],
+                  colors: [Color(0xFF1976D2), Color(0xFF0D47A1)],
                 ),
               ),
               child: Row(
@@ -63,7 +58,7 @@ class MyCardLoan extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      Icons.request_quote,
+                      Icons.savings,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -75,13 +70,23 @@ class MyCardLoan extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
+                          typeaccount,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
                           accountno,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.95),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 12,
                           ),
                         ),
                       ],
@@ -118,31 +123,11 @@ class MyCardLoan extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.badge, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          typeaccount,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.grey[700],
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
                   const SizedBox(height: 12),
-                  Divider(color: Colors.grey[300], height: 1),
-                  const SizedBox(height: 20),
+
                   // Balance section after name
                   Text(
-                    'ยอดหนี้คงเหลือ',
+                    'ยอดเงินคงเหลือ',
                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
                   ),
                   const SizedBox(height: 6),
@@ -156,7 +141,7 @@ class MyCardLoan extends StatelessWidget {
                           textAlign: TextAlign.right,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Color(0xFFD84315),
+                            color: Color(0xFF1976D2),
                             fontSize: 24,
                             fontWeight: FontWeight.w700,
                           ),
@@ -170,76 +155,108 @@ class MyCardLoan extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        'ยอดชำระขั้นต่ำ',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _formatCurrency(minPayment),
-                        style: const TextStyle(
-                          color: Colors.black87,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Text(
-                        'บาท',
-                        style: TextStyle(color: Colors.black54, fontSize: 12),
-                      ),
-                    ],
-                  ),
-
                   const SizedBox(height: 12),
                   Divider(color: Colors.grey[300], height: 1),
                   const SizedBox(height: 16),
 
-                  // Action: Pay loan
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => AddloanScreen(
-                                  accountno: accountno,
-                                  balance: balance,
-                                ),
+                  // Actions
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => AdddepositScreen(
+                                      accountno: accountno,
+                                      balance: balance,
+                                    ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.arrow_downward_rounded,
+                            size: 20,
                           ),
-                        );
-                      },
-                      icon: const Icon(Icons.payments_rounded, size: 20),
-                      label: const Text(
-                        'ชำระเงินกู้',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          label: const Text(
+                            'ฝากเงิน',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.green,
+                            backgroundColor: Colors.greenAccent.withOpacity(
+                              0.10,
+                            ),
+                            side: const BorderSide(
+                              color: Colors.green,
+                              width: 1.4,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ).copyWith(
+                            overlayColor: MaterialStateProperty.all(
+                              Colors.green.withOpacity(0.08),
+                            ),
+                          ),
                         ),
                       ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.deepOrange,
-                        backgroundColor: Colors.orangeAccent.withOpacity(0.10),
-                        side: const BorderSide(
-                          color: Colors.deepOrange,
-                          width: 1.4,
+                      const SizedBox(height: 8),
+                      if (_normalizedStatus() != 'ห้ามถอน')
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => AddwithdrawScreen(
+                                        accountno: accountno,
+                                        balance: balance,
+                                      ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.arrow_upward_rounded,
+                              size: 20,
+                            ),
+                            label: const Text(
+                              'ถอนเงิน',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.red,
+                              backgroundColor: Colors.redAccent.withOpacity(
+                                0.10,
+                              ),
+                              side: const BorderSide(
+                                color: Colors.red,
+                                width: 1.4,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ).copyWith(
+                              overlayColor: MaterialStateProperty.all(
+                                Colors.red.withOpacity(0.08),
+                              ),
+                            ),
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ).copyWith(
-                        overlayColor: MaterialStateProperty.all(
-                          Colors.deepOrange.withOpacity(0.08),
-                        ),
-                      ),
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -254,25 +271,21 @@ class MyCardLoan extends StatelessWidget {
 
   Widget _buildStatusChip() {
     final s = _normalizedStatus();
-    Color dotColor;
-    String text;
+    Color statusColor;
+    String statusText;
 
     switch (s) {
-      case 'ติดตามหนี้':
-        dotColor = Colors.yellowAccent;
-        text = 'ติดตามหนี้';
+      case 'ปกติ':
+        statusColor = Colors.greenAccent;
+        statusText = 'ปกติ';
         break;
-      case 'ปิดสัญญา':
-        dotColor = Colors.black87;
-        text = 'ปิดสัญญา';
-        break;
-      case 'ระหว่างชำระ':
-        dotColor = Colors.greenAccent;
-        text = 'ระหว่างชำระ';
+      case 'ห้ามถอน':
+        statusColor = Colors.redAccent;
+        statusText = 'ห้ามถอน';
         break;
       default:
-        dotColor = Colors.white70;
-        text = 'ไม่ทราบสถานะ';
+        statusColor = Colors.grey;
+        statusText = 'ปิดบัญชี';
     }
 
     return Container(
@@ -284,10 +297,12 @@ class MyCardLoan extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.circle, color: dotColor, size: 10),
+          Icon(Icons.circle, color: statusColor, size: 10),
           const SizedBox(width: 6),
+          const SizedBox(width: 2),
+          const SizedBox.shrink(),
           Text(
-            text,
+            statusText,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w600,
@@ -300,12 +315,14 @@ class MyCardLoan extends StatelessWidget {
   }
 
   String _formatCurrency(String input) {
+    // Remove existing commas/spaces
     final normalized = input.replaceAll(',', '').trim();
     final isNegative = normalized.startsWith('-');
     final cleaned = isNegative ? normalized.substring(1) : normalized;
     double? value = double.tryParse(cleaned);
-    if (value == null) return input;
+    if (value == null) return input; // fallback
 
+    // Keep decimals if provided (up to 2), otherwise none
     int decimals = 0;
     if (cleaned.contains('.')) {
       final frac = cleaned.split('.')[1];
@@ -321,6 +338,7 @@ class MyCardLoan extends StatelessWidget {
   }
 
   String _addCommas(String digits) {
+    // Add thousand separators to a string of digits
     final buffer = StringBuffer();
     final chars = digits.replaceAll(RegExp(r'[^0-9]'), '');
     for (int i = 0; i < chars.length; i++) {
