@@ -1,4 +1,4 @@
-package com.example.walkmoney
+package com.mixproad.walkmoney
 
 import android.content.ContentValues
 import android.graphics.Bitmap
@@ -13,7 +13,7 @@ import java.io.FileOutputStream
 
 class MainActivity: FlutterActivity() {
     // ตั้งชื่อ Channel ของเรา (ต้องตรงกับฝั่ง Dart)
-    private val CHANNEL = "com.example.walkmoney/channel"
+    private val CHANNEL = "com.mixproad.walkmoney/channel"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
