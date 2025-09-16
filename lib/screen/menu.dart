@@ -12,6 +12,7 @@ import 'package:walkmoney/service/config.dart';
 import 'package:http/http.dart' as http;
 
 import 'search.dart';
+import 'passcode.dart';
 
 class Menuscreen extends StatefulWidget {
   const Menuscreen({Key? key, required this.tab}) : super(key: key);
@@ -24,33 +25,75 @@ class Menuscreen extends StatefulWidget {
 }
 
 class _MenuscreenState extends State<Menuscreen> with WidgetsBindingObserver {
+  Timer? _logoutTimer;
+  DateTime? _lastActive;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    setState(() {
-      _selectedIndex = int.parse(widget.tab);
-    });
+    _selectedIndex = int.parse(widget.tab);
+    _resetLogoutTimer();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _logoutTimer?.cancel();
     super.dispose();
   }
 
   @override
-  // void didChangeAppLifecycleState(AppLifecycleState state) {
-  //   if (state == AppLifecycleState.paused) {
-  //     updateuselogin(Config.UserName, Config.Password, "0");
-  //   } else if (state == AppLifecycleState.resumed) {
-  //     updateuselogin(Config.UserName, Config.Password, "1");
-  //   } else if (state == AppLifecycleState.detached) {
-  //     updateuselogin(Config.UserName, Config.Password, "0");
-  //   } else if (state == AppLifecycleState.inactive) {
-  //     updateuselogin(Config.UserName, Config.Password, "0");
-  //   }
-  // }
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      _lastActive = DateTime.now();
+      _logoutTimer?.cancel();
+    } else if (state == AppLifecycleState.resumed) {
+      if (_lastActive != null) {
+        final diff = DateTime.now().difference(_lastActive!);
+        if (diff.inMinutes >= 10) {
+          _performLogout();
+          return;
+        }
+      }
+      _resetLogoutTimer();
+    }
+  }
+
+  void _resetLogoutTimer() {
+    _logoutTimer?.cancel();
+    _logoutTimer = Timer(const Duration(minutes: 10), _performLogout);
+    _lastActive = DateTime.now();
+  }
+
+  void _performLogout() {
+    _logoutTimer?.cancel();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('หมดเวลาการใช้งาน'),
+            content: const Text('คุณไม่ได้ใช้งานเป็นเวลานาน ระบบจะออกจากระบบ'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const PassCodeScreen()),
+                    (route) => false,
+                  );
+                },
+                child: const Text('ตกลง'),
+              ),
+            ],
+          ),
+    );
+  }
+
   int _selectedIndex = 0;
   final List<Widget> _pageWidget = <Widget>[
     SearchMainScreen(),
@@ -79,6 +122,7 @@ class _MenuscreenState extends State<Menuscreen> with WidgetsBindingObserver {
     setState(() {
       _selectedIndex = index;
     });
+    _resetLogoutTimer();
   }
 
   Future<bool> updateuselogin(username, password, st) async {

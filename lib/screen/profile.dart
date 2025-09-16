@@ -561,9 +561,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             final navigator = Navigator.of(ctx);
                             SharedPreferences preferences =
                                 await SharedPreferences.getInstance();
-                            await preferences.clear();
                             await _clerMac();
-                            navigator.pushAndRemoveUntil(
+                            await preferences.clear();
+
+                            await navigator.pushAndRemoveUntil(
                               MaterialPageRoute(
                                 builder: (_) => PassCodeScreen(),
                               ),

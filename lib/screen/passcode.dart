@@ -268,7 +268,6 @@ class _PassCodeScreenState extends State<PassCodeScreen>
               ),
               ElevatedButton(
                 onPressed: () async {
-                  Navigator.pop(context);
                   await _resetUser();
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -284,11 +283,23 @@ class _PassCodeScreenState extends State<PassCodeScreen>
 
   Future<void> _resetUser() async {
     final prefs = await SharedPreferences.getInstance();
+    await _clearMac();
     await prefs.clear();
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => RegisterAppScreen()),
       (route) => false,
     );
+  }
+
+  Future<void> _clearMac() async {
+    var url = Uri.parse(
+      "${Config.UrlApi}/api/UpdateRegister?userid=${Config.UserId}&Cusid=${Config.CusId}",
+    );
+    var headers = {
+      'Verify_identity': Config.Verify_identity,
+      "Accept": "application/json",
+    };
+    await http.post(url, headers: headers);
   }
 
   @override
