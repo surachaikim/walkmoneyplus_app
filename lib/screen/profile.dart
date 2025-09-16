@@ -11,15 +11,24 @@ import 'package:http/http.dart' as http;
 import '../model/infologin.dart';
 
 class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
   @override
-  _ProfileScreenState createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final formkey = GlobalKey<FormState>();
-  final txtPinold = TextEditingController();
-  final txtPinnew = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController txtPinold = TextEditingController();
+  final TextEditingController txtPinnew = TextEditingController();
   bool light = true;
+
+  @override
+  void dispose() {
+    txtPinold.dispose();
+    txtPinnew.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             gradient: LinearGradient(
               colors: [
                 Colors.transparent,
-                Palette.kToDark.shade800.withOpacity(0.1),
+                Palette.kToDark.shade800.withValues(alpha: 0.1),
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -73,9 +82,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                const SizedBox(height: 20),
-                _buildProfileCard(),
-                const SizedBox(height: 24),
+                // const SizedBox(height: 20),
+                // _buildProfileCard(),
+                // const SizedBox(height: 24),
                 // Settings Section Header
                 Padding(
                   padding: const EdgeInsets.only(left: 4, bottom: 12),
@@ -121,20 +130,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.circular(20),
         gradient: LinearGradient(
           colors: [
-            Colors.white.withOpacity(0.2),
-            Colors.white.withOpacity(0.1),
+            Colors.white.withValues(alpha: 0.2),
+            Colors.white.withValues(alpha: 0.1),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.2),
+          width: 1,
+        ),
       ),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -145,12 +157,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
+                  color: Colors.white.withValues(alpha: 0.3),
                   width: 3,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
+                    color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 15,
                     offset: const Offset(0, 5),
                   ),
@@ -184,17 +196,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.3),
+                        color: Colors.white.withValues(alpha: 0.3),
                         width: 1,
                       ),
                     ),
                     child: Text(
                       "ID: ${Config.UserId}",
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -212,7 +224,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.green.withOpacity(0.4),
+                    color: Colors.green.withValues(alpha: 0.4),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -232,7 +244,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -289,9 +301,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withOpacity(0.2), width: 1),
+            border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
           ),
           child: Icon(icon, color: color, size: 24),
         ),
@@ -339,8 +351,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: Colors.white.withOpacity(0.1),
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
+        color: Colors.white.withValues(alpha: 0.1),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.2),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -351,7 +366,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(Icons.wallet, color: Colors.white, size: 24),
@@ -385,7 +400,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildInfoRow(
             Icons.info_outline,
             "เวอร์ชัน",
-            Config.Test ? "Test Version" : "2.1.0",
+            Config.Test ? "Test Version" : "2.1.1",
           ),
         ],
       ),
@@ -395,13 +410,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white.withOpacity(0.8), size: 20),
+        Icon(icon, color: Colors.white.withValues(alpha: 0.8), size: 20),
         const SizedBox(width: 12),
         Text(
           "$label:",
           style: TextStyle(
             fontSize: 14,
-            color: Colors.white.withOpacity(0.7),
+            color: Colors.white.withValues(alpha: 0.7),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -438,7 +453,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -533,7 +548,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.red.withOpacity(0.3),
+                              color: Colors.red.withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),
@@ -541,13 +556,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         child: ElevatedButton(
                           onPressed: () async {
+                            // capture context and navigator before awaits
+                            final ctx = context;
+                            final navigator = Navigator.of(ctx);
                             SharedPreferences preferences =
                                 await SharedPreferences.getInstance();
                             await preferences.clear();
-                            _clerMac();
-                            Navigator.of(context).pushAndRemoveUntil(
+                            await _clerMac();
+                            navigator.pushAndRemoveUntil(
                               MaterialPageRoute(
-                                builder: (context) => PassCodeScreen(),
+                                builder: (_) => PassCodeScreen(),
                               ),
                               (Route<dynamic> route) => false,
                             );
@@ -598,7 +616,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -606,7 +624,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             child: SingleChildScrollView(
               child: Form(
-                key: formkey,
+                key: _formKey,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -780,7 +798,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.blue.withOpacity(0.3),
+                                  color: Colors.blue.withValues(alpha: 0.3),
                                   blurRadius: 8,
                                   offset: const Offset(0, 4),
                                 ),
@@ -788,7 +806,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             child: ElevatedButton(
                               onPressed: () async {
-                                if (formkey.currentState!.validate()) {
+                                // capture navigator/context before any awaits to avoid using BuildContext across async gaps
+                                final ctx = context;
+                                final navigator = Navigator.of(ctx);
+                                if (_formKey.currentState!.validate()) {
                                   if (Config.Pin == txtPinold.text) {
                                     SharedPreferences preferences =
                                         await SharedPreferences.getInstance();
@@ -808,16 +829,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ),
                                       ],
                                     ];
-                                    _addToSP(tList);
-                                    Navigator.of(context).pushAndRemoveUntil(
+                                    await _addToSP(tList);
+                                    navigator.pushAndRemoveUntil(
                                       MaterialPageRoute(
-                                        builder: (context) => PassCodeScreen(),
+                                        builder: (_) => const PassCodeScreen(),
                                       ),
                                       (Route<dynamic> route) => false,
                                     );
                                   } else {
-                                    Navigator.pop(context);
-                                    _showErrorDialog('PIN เดิมไม่ถูกต้อง');
+                                    navigator.pop();
+                                    await _showErrorDialog(
+                                      ctx,
+                                      'PIN เดิมไม่ถูกต้อง',
+                                    );
                                   }
                                 }
                               },
@@ -869,7 +893,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -910,7 +934,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   'คุณต้องการออกจากระบบใช่หรือไม่?\nข้อมูลที่ยังไม่ได้บันทึกอาจสูญหาย',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     color: Palette.kToDark.shade600,
                     height: 1.4,
                   ),
@@ -941,7 +965,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Text(
                             'ยกเลิก',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                               color: Palette.kToDark.shade700,
                             ),
@@ -967,17 +991,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.orange.withOpacity(0.3),
+                              color: Colors.orange.withValues(alpha: 0.3),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),
                           ],
                         ),
                         child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).pushAndRemoveUntil(
+                          onPressed: () async {
+                            final ctx = context;
+                            final navigator = Navigator.of(ctx);
+                            navigator.pushAndRemoveUntil(
                               MaterialPageRoute(
-                                builder: (context) => PassCodeScreen(),
+                                builder: (_) => const PassCodeScreen(),
                               ),
                               (Route<dynamic> route) => false,
                             );
@@ -990,9 +1016,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           child: const Text(
-                            'ออกจากระบบ',
+                            'ออก',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
@@ -1010,9 +1036,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
+  Future<void> _showErrorDialog(BuildContext ctx, String message) async {
+    return showDialog<void>(
+      context: ctx,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
@@ -1028,7 +1054,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -1090,7 +1116,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.red.withOpacity(0.3),
+                          color: Colors.red.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),

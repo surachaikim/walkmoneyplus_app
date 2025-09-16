@@ -10,6 +10,7 @@ import 'package:walkmoney/screen/serachpersonid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:walkmoney/screen/scanidcard.dart';
+import 'package:walkmoney/screen/passcode.dart';
 
 class SearchMainScreen extends StatefulWidget {
   const SearchMainScreen({super.key});
@@ -30,6 +31,8 @@ class _SearchMainScreenState extends State<SearchMainScreen>
   late Animation<Offset> _slideAnimation;
 
   final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+
+  String internetStatus = "loading"; // "ดี", "ปานกลาง", "ต่ำ", "offline"
 
   @override
   void initState() {
@@ -52,6 +55,71 @@ class _SearchMainScreenState extends State<SearchMainScreen>
     );
 
     _animationController.forward();
+    checkInternetSpeed();
+  }
+
+  Future<void> checkInternetSpeed() async {
+    try {
+      final stopwatch = Stopwatch()..start();
+      final url = Uri.parse('https://www.google.com/favicon.ico');
+      final response = await http.get(url);
+      stopwatch.stop();
+      if (response.statusCode == 200) {
+        final ms = stopwatch.elapsedMilliseconds;
+        setState(() {
+          if (ms < 300) {
+            internetStatus = "ดี";
+          } else if (ms < 1000) {
+            internetStatus = "ปานกลาง";
+          } else {
+            internetStatus = "ต่ำ";
+          }
+        });
+
+        // If internet is poor, show alert and navigate to PassCode screen
+        if (stopwatch.elapsedMilliseconds >= 1000) {
+          // schedule on next microtask and capture context/navigator inside the microtask
+          Future.microtask(() async {
+            if (!mounted) return;
+            final ctxLocal = context;
+            final navigatorLocal = Navigator.of(ctxLocal);
+            await showDialog<void>(
+              context: ctxLocal,
+              barrierDismissible: false,
+              builder: (BuildContext _) {
+                return AlertDialog(
+                  title: const Text('การเชื่อมต่อไม่เสถียร'),
+                  content: const Text(
+                    'อินเทอร์เน็ตมีความเร็วต่ำ ระบบจะพาออกจากหน้านี้เพื่อให้คุณเข้าสู่ระบบใหม่',
+                  ),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () {
+                        navigatorLocal.pop();
+                      },
+                      child: const Text('ตกลง'),
+                    ),
+                  ],
+                );
+              },
+            );
+
+            if (!mounted) return;
+            navigatorLocal.pushReplacement(
+              MaterialPageRoute(builder: (_) => const PassCodeScreen()),
+            );
+          });
+        }
+      } else {
+        setState(() {
+          internetStatus = "offline";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        internetStatus = "offline";
+      });
+    }
   }
 
   @override
@@ -68,7 +136,7 @@ class _SearchMainScreenState extends State<SearchMainScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        toolbarHeight: 40, // shorter app bar
+        toolbarHeight: 30, // shorter app bar
         automaticallyImplyLeading: false, // ปิดปุ่มย้อนกลับ
       ),
       body: Container(
@@ -108,17 +176,38 @@ class _SearchMainScreenState extends State<SearchMainScreen>
     final double maxTextWidth =
         MediaQuery.of(context).size.width -
         64; // 16px padding left/right + breathing room
-    return AnimatedBuilder(
-      animation: _fadeAnimation,
-      builder: (context, child) {
-        return Opacity(
-          opacity: _fadeAnimation.value,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
+    IconData statusIcon;
+    Color statusColor;
+    switch (internetStatus) {
+      case "ดี":
+        statusIcon = Icons.wifi;
+        statusColor = Colors.greenAccent.shade700;
+        break;
+      case "ปานกลาง":
+        statusIcon = Icons.wifi;
+        statusColor = Colors.amber.shade700;
+        break;
+      case "ต่ำ":
+        statusIcon = Icons.wifi_off;
+        statusColor = Colors.redAccent.shade700;
+        break;
+      case "offline":
+        statusIcon = Icons.signal_wifi_off;
+        statusColor = Colors.grey;
+        break;
+      default:
+        statusIcon = Icons.wifi;
+        statusColor = Colors.blueGrey;
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: SizedBox(
+        height: 84,
+        child: Stack(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -135,75 +224,98 @@ class _SearchMainScreenState extends State<SearchMainScreen>
                     size: 28,
                   ),
                 ),
-                const SizedBox(height: 10),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxTextWidth),
-                  child: Text(
-                    Config.Name,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      fontSize: 16,
-                      letterSpacing: 0.2,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.apartment_rounded,
-                      size: 16,
-                      color: Colors.white.withValues(alpha: 0.9),
-                    ),
-                    const SizedBox(width: 6),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: maxTextWidth - 40),
-                      child: Text(
-                        Config.CpName,
-                        maxLines: 1,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: maxTextWidth),
+                        child: Text(
+                          Config.Name,
+                          textAlign: TextAlign.left,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            fontSize: 16,
+                            letterSpacing: 0.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(
+                            Icons.apartment_rounded,
+                            size: 16,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                          const SizedBox(width: 6),
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: maxTextWidth - 40,
+                            ),
+                            child: Text(
+                              Config.CpName,
+                              maxLines: 1,
+                              textAlign: TextAlign.left,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          'ID: ${Config.UserId}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.95),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(width: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
+                    horizontal: 6,
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.25),
+                    color: statusColor.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    'ID: ${Config.UserId}',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.95),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.2,
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.3),
                     ),
                   ),
+                  child: Icon(statusIcon, color: statusColor, size: 16),
                 ),
               ],
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
@@ -264,7 +376,7 @@ class _SearchMainScreenState extends State<SearchMainScreen>
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
                   childAspectRatio: 1.1,
-                  children: [
+                  children: <Widget>[
                     _buildSearchCard(
                       icon: 'assets/images/search1.png',
                       title: 'ค้นหาด้วยชื่อ',
@@ -401,16 +513,18 @@ class _SearchMainScreenState extends State<SearchMainScreen>
       if (scannedText.isNotEmpty) {
         getmemberByqrIdcard(scannedText);
       } else {
+        if (!mounted) return;
         setState(() {
           textScanning = false;
         });
-        _showErrorDialog('ไม่สามารถอ่านข้อมูลจากบัตรได้');
+        await _showErrorDialog(context, 'ไม่สามารถอ่านข้อมูลจากบัตรได้');
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         textScanning = false;
       });
-      _showErrorDialog('เกิดข้อผิดพลาดในการสแกน');
+      await _showErrorDialog(context, 'เกิดข้อผิดพลาดในการสแกน');
     }
   }
 
@@ -427,6 +541,7 @@ class _SearchMainScreenState extends State<SearchMainScreen>
 
       var response = await http.get(url, headers: headers);
 
+      if (!mounted) return;
       setState(() {
         textScanning = false;
       });
@@ -437,8 +552,8 @@ class _SearchMainScreenState extends State<SearchMainScreen>
 
         if (persons.isNotEmpty) {
           if (!mounted) return;
-          Navigator.push(
-            context,
+          final navigatorLocal = Navigator.of(context);
+          navigatorLocal.push(
             MaterialPageRoute(
               builder:
                   (context) => AccountinfoScreen(
@@ -456,22 +571,25 @@ class _SearchMainScreenState extends State<SearchMainScreen>
             ),
           );
         } else {
-          _showErrorDialog('ไม่พบข้อมูลสมาชิก');
+          if (!mounted) return;
+          await _showErrorDialog(context, 'ไม่พบข้อมูลสมาชิก');
         }
       } else {
-        _showErrorDialog('ไม่พบข้อมูลสมาชิก');
+        if (!mounted) return;
+        await _showErrorDialog(context, 'ไม่พบข้อมูลสมาชิก');
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         textScanning = false;
       });
-      _showErrorDialog('เกิดข้อผิดพลาดในการค้นหา');
+      await _showErrorDialog(context, 'เกิดข้อผิดพลาดในการค้นหา');
     }
   }
 
-  Future<void> _showErrorDialog(String message) async {
+  Future<void> _showErrorDialog(BuildContext ctx, String message) async {
     return showDialog<void>(
-      context: context,
+      context: ctx,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
@@ -611,3 +729,5 @@ class _SearchActionCardState extends State<SearchActionCard> {
     );
   }
 }
+
+// header graphic removed as requested
