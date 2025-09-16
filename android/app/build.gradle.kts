@@ -36,8 +36,8 @@ android {
         minSdk = 21
         targetSdk = 35
     // version bump for release 2.1.1 (build 2)
-    versionCode = 2
-    versionName = "2.1.1"
+    versionCode = 3
+    versionName = "2.1.2"
     }
 
 
