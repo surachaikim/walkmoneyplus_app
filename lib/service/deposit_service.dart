@@ -62,4 +62,20 @@ class DepositService {
     var response = await http.post(url, headers: headers);
     return response.body == "true";
   }
+
+  // Mock: Get deposit history for account
+  static Future<List<Map<String, dynamic>>> getDepositHistory(
+    String accountNo,
+  ) async {
+    // TODO: Replace with real API call if available
+    await Future.delayed(const Duration(milliseconds: 300));
+    return [
+      {"amount": "500", "movementDate": "2025-09-17 10:30", "docId": "DP00123"},
+      {
+        "amount": "1000",
+        "movementDate": "2025-09-16 14:20",
+        "docId": "DP00122",
+      },
+    ];
+  }
 }

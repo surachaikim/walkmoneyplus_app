@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:walkmoney/screen/receipt.dart';
 import 'package:walkmoney/service/deposit_service.dart';
+import 'package:walkmoney/service/member_service.dart';
 import 'package:walkmoney/palette.dart'; // Assuming you have a palette.dart file for colors
 
 class AdddepositScreen extends StatefulWidget {
@@ -86,6 +87,13 @@ class _AdddepositScreenState extends State<AdddepositScreen> {
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history, color: Colors.white),
+            tooltip: 'ประวัติการฝาก',
+            onPressed: () => _showDepositHistorySheet(),
+          ),
+        ],
       ),
       body: Container(
         width: double.infinity,
@@ -115,6 +123,84 @@ class _AdddepositScreenState extends State<AdddepositScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _showDepositHistorySheet() async {
+    List<dynamic> history = [];
+    try {
+      history = await MemberService.getMovement(widget.accountno);
+    } catch (e) {
+      history = [];
+    }
+    if (!mounted) return;
+    // Filter only items with deposit > 0
+    final depositHistory =
+        history.where((item) {
+          final deposit = num.tryParse(item["deposit"].toString()) ?? 0;
+          return deposit > 0;
+        }).toList();
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (ctx) {
+        if (depositHistory.isEmpty) {
+          return SizedBox(
+            height: 220,
+            child: Center(
+              child: Text('ไม่มีประวัติการฝาก', style: TextStyle(fontSize: 18)),
+            ),
+          );
+        }
+        return SizedBox(
+          height: 400,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'ประวัติการฝาก',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: depositHistory.length,
+                  itemBuilder: (context, index) {
+                    final item = depositHistory[index];
+                    // Format movementDate to Thai Buddhist year (พ.ศ.)
+                    String formattedDate = item["movementDate"];
+                    try {
+                      final date = DateTime.parse(item["movementDate"]);
+                      final buddhistYear = date.year + 543;
+                      formattedDate =
+                          DateFormat('d MMM', 'th').format(date) +
+                          ' ' +
+                          buddhistYear.toString();
+                    } catch (_) {}
+                    return ListTile(
+                      leading: Icon(Icons.receipt_long, color: Colors.teal),
+                      title: Text(
+                        'จำนวน ${item["deposit"]} ',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text('วันที่ $formattedDate'),
+                      trailing: Text(
+                        item["docId"] ?? item["docNo"] ?? '',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    );
+                  },
+                  separatorBuilder: (context, index) => Divider(height: 1),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -167,7 +253,7 @@ class _AdddepositScreenState extends State<AdddepositScreen> {
                   ),
                 ),
                 Text(
-                  '${widget.balance} ฿',
+                  '${widget.balance} ',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,

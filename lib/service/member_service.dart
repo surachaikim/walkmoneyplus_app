@@ -3,6 +3,17 @@ import 'package:http/http.dart' as http;
 import '../service/config.dart';
 
 class MemberService {
+  // Get loan history for an idcard
+  static Future<List<dynamic>> getLoanHistory(String idcard) async {
+    try {
+      final loanAccounts = await getAccountLoan(idcard);
+      // You may want to process/format loanAccounts here if needed
+      return loanAccounts;
+    } catch (e) {
+      throw Exception('Failed to load loan history: $e');
+    }
+  }
+
   static Future<dynamic> getMemberData(String cusId) async {
     final url = Uri.parse("${Config.UrlApi}/api/GetMember?Sys=2&Cusid=$cusId");
     final headers = {

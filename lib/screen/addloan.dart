@@ -8,7 +8,8 @@ import 'package:http/http.dart' as http;
 
 import 'package:walkmoney/service/config.dart';
 import 'package:walkmoney/screen/receipt.dart';
-import 'package:walkmoney/palette.dart';
+import 'package:walkmoney/service/member_service.dart';
+import 'package:walkmoney/palette.dart'; // Assuming you have a palette.dart file for colors
 
 class AddloanScreen extends StatefulWidget {
   AddloanScreen({Key? key, required this.accountno, required this.balance})
@@ -52,6 +53,81 @@ class _AddloanScreenState extends State<AddloanScreen> {
     super.dispose();
   }
 
+  Future<void> _showLoanHistorySheet() async {
+    List<dynamic> history = [];
+    try {
+      history = await MemberService.getMovementLoan(widget.accountno);
+    } catch (e) {
+      history = [];
+    }
+    print(history);
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (ctx) {
+        if (history.isEmpty) {
+          return SizedBox(
+            height: 220,
+            child: Center(
+              child: Text('ไม่มีประวัติการกู้', style: TextStyle(fontSize: 18)),
+            ),
+          );
+        }
+        return SizedBox(
+          height: 400,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'ประวัติการกู้',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: history.length,
+                  itemBuilder: (context, index) {
+                    final item = history[index];
+                    // Format date if available
+                    String formattedDate = item["movementDate"] ?? '';
+                    try {
+                      if (formattedDate.isNotEmpty) {
+                        final date = DateTime.parse(formattedDate);
+                        final buddhistYear = date.year + 543;
+                        formattedDate =
+                            DateFormat('d MMM', 'th').format(date) +
+                            ' ' +
+                            buddhistYear.toString();
+                      }
+                    } catch (_) {}
+                    return ListTile(
+                      leading: Icon(Icons.receipt_long, color: Colors.orange),
+                      title: Text(
+                        'จำนวน ${item["totalAmount"] ?? "-"} ',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text('วันที่ชำระ ${formattedDate}'),
+                      trailing: Text(
+                        item["docNo"] ?? '',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    );
+                  },
+                  separatorBuilder: (context, index) => Divider(height: 1),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,6 +141,13 @@ class _AddloanScreenState extends State<AddloanScreen> {
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history, color: Colors.white),
+            tooltip: 'ประวัติการกู้',
+            onPressed: _showLoanHistorySheet,
+          ),
+        ],
       ),
       body: Container(
         width: double.infinity,

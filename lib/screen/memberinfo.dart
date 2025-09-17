@@ -91,7 +91,7 @@ class _MemberinfoState extends State<Memberinfo> {
       final deposits = await MemberService.getAccountDeposit(widget.idcard);
       if (deposits.isNotEmpty) {
         Accountinfo = deposits;
-        await _loadMovementData(deposits[0]["accountNo"]);
+        // await _loadMovementData(deposits[0]["accountNo"]);
       }
     } catch (e) {
       print('Error loading deposit data: $e');
@@ -103,40 +103,40 @@ class _MemberinfoState extends State<Memberinfo> {
       final loans = await MemberService.getAccountLoan(widget.idcard);
       if (loans.isNotEmpty) {
         loaninfo = loans;
-        await _loadLoanMovementData(loans[0]["accountNo"]);
+        // await _loadLoanMovementData(loans[0]["accountNo"]);
       }
     } catch (e) {
       print('Error loading loan data: $e');
     }
   }
 
-  Future<void> _loadMovementData(String accountNo) async {
-    try {
-      final movements = await MemberService.getMovement(accountNo);
-      movementinfo = movements;
-      if (mounted) {
-        setState(() {
-          loadinghistory = false;
-        });
-      }
-    } catch (e) {
-      print('Error loading movement data: $e');
-    }
-  }
+  // Future<void> _loadMovementData(String accountNo) async {
+  //   try {
+  //     final movements = await MemberService.getMovement(accountNo);
+  //     movementinfo = movements;
+  //     if (mounted) {
+  //       setState(() {
+  //         loadinghistory = false;
+  //       });
+  //     }
+  //   } catch (e) {
+  //     print('Error loading movement data: $e');
+  //   }
+  // }
 
-  Future<void> _loadLoanMovementData(String accountNo) async {
-    try {
-      final movements = await MemberService.getMovementLoan(accountNo);
-      movementlaontinfo = movements;
-      if (mounted) {
-        setState(() {
-          loadinghistory = false;
-        });
-      }
-    } catch (e) {
-      print('Error loading loan movement data: $e');
-    }
-  }
+  // Future<void> _loadLoanMovementData(String accountNo) async {
+  //   try {
+  //     final movements = await MemberService.getMovementLoan(accountNo);
+  //     movementlaontinfo = movements;
+  //     if (mounted) {
+  //       setState(() {
+  //         loadinghistory = false;
+  //       });
+  //     }
+  //   } catch (e) {
+  //     print('Error loading loan movement data: $e');
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
