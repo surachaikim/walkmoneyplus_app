@@ -78,13 +78,10 @@ class _SearchMainScreenState extends State<SearchMainScreen>
 
         // If internet is poor, show alert and navigate to PassCode screen
         if (stopwatch.elapsedMilliseconds >= 1000) {
-          // schedule on next microtask and capture context/navigator inside the microtask
-          Future.microtask(() async {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
-            final ctxLocal = context;
-            final navigatorLocal = Navigator.of(ctxLocal);
             await showDialog<void>(
-              context: ctxLocal,
+              context: context,
               barrierDismissible: false,
               builder: (BuildContext _) {
                 return AlertDialog(
@@ -95,7 +92,7 @@ class _SearchMainScreenState extends State<SearchMainScreen>
                   actions: <Widget>[
                     TextButton(
                       onPressed: () {
-                        navigatorLocal.pop();
+                        Navigator.of(context).pop();
                       },
                       child: const Text('ตกลง'),
                     ),
@@ -105,7 +102,7 @@ class _SearchMainScreenState extends State<SearchMainScreen>
             );
 
             if (!mounted) return;
-            navigatorLocal.pushReplacement(
+            Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (_) => const PassCodeScreen()),
             );
           });
@@ -139,35 +136,42 @@ class _SearchMainScreenState extends State<SearchMainScreen>
         toolbarHeight: 30, // shorter app bar
         automaticallyImplyLeading: false, // ปิดปุ่มย้อนกลับ
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Palette.kToDark.shade100, Palette.kToDark.shade900],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 20),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(32),
-                      topRight: Radius.circular(32),
+      body: Stack(
+        children: [
+          Positioned.fill(child: CustomPaint(painter: _HeaderCurvePainter())),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Palette.kToDark.shade100, Palette.kToDark.shade900],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 35),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(32),
+                          topRight: Radius.circular(32),
+                        ),
+                      ),
+                      child:
+                          textScanning
+                              ? _buildLoadingWidget()
+                              : _buildSearchGrid(),
                     ),
                   ),
-                  child:
-                      textScanning ? _buildLoadingWidget() : _buildSearchGrid(),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -200,118 +204,100 @@ class _SearchMainScreenState extends State<SearchMainScreen>
         statusColor = Colors.blueGrey;
     }
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.fromLTRB(30, 20, 16, 8),
       child: SizedBox(
-        height: 84,
-        child: Stack(
+        height: 100,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.22),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.45),
-                      width: 1,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxTextWidth),
+                    child: Row(
+                      children: [
+                        Icon(Icons.person, color: Colors.white, size: 18),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            Config.Name,
+                            textAlign: TextAlign.left,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              fontSize: 20,
+                              letterSpacing: 0.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: const Icon(
-                    Icons.person,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.apartment_rounded,
+                        size: 16,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                      const SizedBox(width: 6),
                       ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: maxTextWidth),
+                        constraints: BoxConstraints(
+                          maxWidth: maxTextWidth - 40,
+                        ),
                         child: Text(
-                          Config.Name,
+                          Config.CpName,
+                          maxLines: 1,
                           textAlign: TextAlign.left,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            fontSize: 16,
-                            letterSpacing: 0.2,
-                          ),
-                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Icon(
-                            Icons.apartment_rounded,
-                            size: 16,
-                            color: Colors.white.withValues(alpha: 0.9),
-                          ),
-                          const SizedBox(width: 6),
-                          ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: maxTextWidth - 40,
-                            ),
-                            child: Text(
-                              Config.CpName,
-                              maxLines: 1,
-                              textAlign: TextAlign.left,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.2,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          'ID: ${Config.UserId}',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.95),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
                             letterSpacing: 0.2,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: statusColor.withValues(alpha: 0.3),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'ID: ${Config.UserId}',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
                     ),
                   ),
-                  child: Icon(statusIcon, color: statusColor, size: 16),
-                ),
-              ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+              ),
+              child: Icon(statusIcon, color: statusColor, size: 16),
             ),
           ],
         ),
@@ -731,3 +717,70 @@ class _SearchActionCardState extends State<SearchActionCard> {
 }
 
 // header graphic removed as requested
+
+class _HeaderCurvePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+
+    final Paint paint =
+        Paint()
+          ..shader = LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.06),
+              Colors.blueAccent.withValues(alpha: 0.14),
+              Colors.lightBlueAccent.withValues(alpha: 0.10),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ).createShader(rect)
+          ..style = PaintingStyle.fill;
+
+    final Path path =
+        Path()
+          ..moveTo(0, size.height * 0.4)
+          ..quadraticBezierTo(
+            size.width * 0.25,
+            size.height * 0.25,
+            size.width * 0.5,
+            size.height * 0.35,
+          )
+          ..quadraticBezierTo(
+            size.width * 0.75,
+            size.height * 0.45,
+            size.width,
+            size.height * 0.3,
+          )
+          ..lineTo(size.width, 0)
+          ..lineTo(0, 0)
+          ..close();
+
+    canvas.drawPath(path, paint);
+
+    // subtle bottom highlight
+    final Paint paint2 =
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.03)
+          ..style = PaintingStyle.fill;
+
+    final Path path2 =
+        Path()
+          ..moveTo(0, size.height * 0.55)
+          ..cubicTo(
+            size.width * 0.2,
+            size.height * 0.45,
+            size.width * 0.7,
+            size.height * 0.65,
+            size.width,
+            size.height * 0.55,
+          )
+          ..lineTo(size.width, size.height)
+          ..lineTo(0, size.height)
+          ..close();
+
+    canvas.drawPath(path2, paint2);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
